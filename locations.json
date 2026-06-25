@@ -1,0 +1,21 @@
+{
+  "_comment": "QR코드 위치 데이터 (더미). 각 QR코드가 부착된 고정 지점입니다. 건물(관)·층별로 구분해 저장합니다. 여기에 실제 가락몰 QR 부착 위치를 채우세요. URL의 ?loc=<locId> 값과 일치시켜야 합니다.",
+  "_schema": {
+    "locId": "위치 ID (QR URL 파라미터 값). 'b1-f1-front' 처럼 건물-층-지점 규칙 권장",
+    "name": "위치 표시 이름",
+    "building": "관/판매동 (stores.json 의 building 과 일치)",
+    "floor": "층 번호(정수)",
+    "x": "지도 X좌표(0~1000)",
+    "y": "지도 Y좌표(0~1000)"
+  },
+  "locations": [
+    { "locId": "b1-f1-front",  "name": "정문 입구",        "building": "가락몰 1관", "floor": 1, "x": 500, "y": 40 },
+    { "locId": "b1-f1-center", "name": "중앙 통로",        "building": "가락몰 1관", "floor": 1, "x": 300, "y": 300 },
+    { "locId": "b1-f2-esc",    "name": "에스컬레이터 앞",   "building": "가락몰 1관", "floor": 2, "x": 500, "y": 300 },
+    { "locId": "b2-f1-east",   "name": "동측 출입구",      "building": "가락몰 2관", "floor": 1, "x": 960, "y": 400 },
+    { "locId": "b2-f1-center", "name": "수산동 중앙",      "building": "가락몰 2관", "floor": 1, "x": 300, "y": 700 },
+    { "locId": "b2-f2-esc",    "name": "회센터 입구",      "building": "가락몰 2관", "floor": 2, "x": 720, "y": 600 },
+    { "locId": "b3-f1-west",   "name": "서측 출입구",      "building": "가락몰 3관", "floor": 1, "x": 40,  "y": 400 },
+    { "locId": "b3-f1-center", "name": "특산품동 중앙",    "building": "가락몰 3관", "floor": 1, "x": 520, "y": 560 }
+  ]
+}

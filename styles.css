@@ -1,0 +1,140 @@
+/* 가락몰 길찾기 스타일 / 생성일: 2026-06-25
+   설계 원칙: 모바일 세로 우선, 큰 글씨, 단순한 버튼 (고령 사용자 고려) */
+
+:root {
+  --green: #1e7a3c;       /* 가락몰 신선 이미지 그린 */
+  --green-dark: #145c2c;
+  --orange: #e8731a;      /* 목적지 강조 */
+  --bg: #f4f6f4;
+  --card: #ffffff;
+  --text: #1c1c1c;
+  --muted: #6b6b6b;
+  --line: #d8ddd8;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  /* 한글 가독성 좋은 시스템 폰트 */
+  font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  font-size: 18px;          /* 기본 글씨 크게 */
+  line-height: 1.5;
+}
+
+#app {
+  max-width: 480px;         /* 모바일 세로 폭 기준 */
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 헤더 */
+.app-header {
+  background: var(--green);
+  color: #fff;
+  padding: 16px 18px;
+  text-align: center;
+}
+.app-header h1 { margin: 0 0 6px; font-size: 1.5rem; }
+.current-loc { margin: 0; font-size: 1.05rem; }
+.current-loc strong { color: #ffe9b0; }
+
+main { flex: 1; padding: 20px 16px 16px; }
+
+/* 입력 영역 */
+.guide { font-size: 1.6rem; font-weight: 800; margin: 8px 0 4px; text-align: center; color: var(--green-dark); }
+.guide.small { font-size: 1rem; font-weight: 500; color: var(--muted); margin-top: 18px; }
+
+/* 음성 입력: 화면 가운데 아주 큰 원형 마이크 버튼 */
+.voice-wrap { text-align: center; margin: 16px 0 10px; }
+.mic-btn {
+  width: min(78vw, 300px);      /* 화면 폭 대부분을 차지하는 큰 동그라미 */
+  height: min(78vw, 300px);
+  border-radius: 50%;
+  background: var(--green);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 22px rgba(30,122,60,.38);
+}
+.mic-btn svg { width: 46%; height: 46%; }   /* 버튼 크기에 비례한 큰 마이크 아이콘 */
+.mic-btn:active { transform: scale(0.96); }
+/* 듣는 중: 주황색 + 펄스(파동 링) */
+.mic-btn.listening { background: var(--orange); animation: pulse-ring 1.2s infinite; }
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(232,115,26,.5); }
+  70%  { box-shadow: 0 0 0 30px rgba(232,115,26,0); }
+  100% { box-shadow: 0 0 0 0 rgba(232,115,26,0); }
+}
+.mic-label { font-size: 1.35rem; font-weight: 700; color: var(--green-dark); margin: 16px 0 0; }
+.mic-btn.listening + .mic-label { color: var(--orange); }
+
+.voice-status { text-align: center; min-height: 1.4em; color: var(--muted); margin: 8px 0 0; }
+
+/* 카테고리 버튼: 큰 터치 영역, 2열 그리드 */
+.category-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 10px;
+}
+.category-buttons button {
+  padding: 20px 8px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  background: var(--card);
+  color: var(--text);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  cursor: pointer;
+}
+.category-buttons button:active { background: #eef5ee; border-color: var(--green); }
+
+/* 결과 카드 */
+.result-card {
+  background: var(--card);
+  border: 2px solid var(--orange);
+  border-radius: 16px;
+  padding: 18px;
+  margin: 18px 0;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+}
+.result-card h2 { margin: 0 0 4px; font-size: 1.5rem; color: var(--orange); }
+.result-card .store-meta { font-size: 1.1rem; margin: 6px 0; }
+.result-card .store-meta .label { color: var(--muted); display: inline-block; min-width: 64px; }
+.result-card .tags { margin-top: 8px; }
+.result-card .tag {
+  display: inline-block; background: #eef5ee; color: var(--green-dark);
+  padding: 4px 10px; border-radius: 999px; font-size: .95rem; margin: 0 6px 6px 0;
+}
+.result-card .floor-note { margin-top: 10px; font-weight: 700; color: var(--orange); }
+
+/* 지도 */
+.map-section { margin-top: 6px; }
+.map-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.floor-label { font-weight: 700; color: var(--muted); }
+.floor-tabs { display: flex; gap: 8px; }
+.floor-tabs button {
+  padding: 8px 16px; font-size: 1.05rem; font-weight: 700;
+  border: 2px solid var(--line); border-radius: 10px; background: var(--card); cursor: pointer;
+}
+.floor-tabs button.active { background: var(--green); color: #fff; border-color: var(--green); }
+
+.map-wrap {
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+#mapSvg { display: block; width: 100%; height: auto; background: #fbfcfb; }
+
+.app-footer { text-align: center; color: var(--muted); padding: 14px; }
+
+.hidden { display: none; }

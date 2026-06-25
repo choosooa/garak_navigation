@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<!-- 가락몰 실내 길찾기 웹앱 (프로토타입) / 생성일: 2026-06-25 -->
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <!-- 모바일 세로 화면 우선 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>가락몰 길찾기</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <main>
+      <!-- 1) 입력 영역 -->
+      <section class="input-section">
+        <p class="guide">무엇을 사러 오셨나요?</p>
+
+        <!-- 음성 입력: 화면 가운데 큰 원형 마이크 버튼 -->
+        <div class="voice-wrap">
+          <button id="voiceBtn" class="mic-btn" type="button" aria-label="음성으로 말하기">
+            <!-- 마이크 아이콘 (SVG) -->
+            <svg viewBox="0 0 24 24" width="64" height="64" fill="none"
+                 stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="2" width="6" height="12" rx="3" fill="#fff" stroke="none"/>
+              <path d="M5 10v1a7 7 0 0 0 14 0v-1"/>
+              <line x1="12" y1="18" x2="12" y2="22"/>
+              <line x1="8" y1="22" x2="16" y2="22"/>
+            </svg>
+          </button>
+        </div>
+        <!-- 음성 상태 메시지 (동적, 평소 비어있음) -->
+        <p id="voiceStatus" class="voice-status"></p>
+
+        <!-- 카테고리 터치 버튼 (음성 실패/소음 대비 항상 제공) -->
+        <div id="categoryButtons" class="category-buttons">
+          <!-- app.js 에서 동적 생성 -->
+        </div>
+      </section>
+
+      <!-- 2) 결과 카드 -->
+      <section id="resultCard" class="result-card hidden">
+        <!-- app.js 에서 채움 -->
+      </section>
+
+      <!-- 3) 지도 (SVG 평면도) — 입력(음성/버튼) 후에만 표시 -->
+      <section class="map-section hidden">
+        <div class="map-toolbar">
+          <span class="floor-label">평면도</span>
+          <div id="floorTabs" class="floor-tabs"><!-- 층 탭 동적 생성 --></div>
+        </div>
+        <div class="map-wrap">
+          <svg id="mapSvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"
+               xmlns="http://www.w3.org/2000/svg" role="img" aria-label="가락몰 평면도">
+            <!-- 평면도/마커/경로는 app.js 에서 그립니다 -->
+          </svg>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <small>프로토타입 · 실시간 측위 없이 QR 위치 기준 안내</small>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

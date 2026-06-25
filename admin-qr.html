@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<!-- 가락몰 길찾기 — 운영자용 QR코드 생성/인쇄 페이지 / 생성일: 2026-06-25 -->
+<!-- locations.json 의 각 QR 위치마다 ?loc=<locId> URL을 담은 QR코드를 생성합니다.
+     화면에서 보고, 인쇄(Ctrl/Cmd+P)해서 해당 위치 벽에 부착하세요. -->
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>가락몰 길찾기 · QR 생성</title>
+  <style>
+    /* 화면 + 인쇄 공용 스타일 */
+    body { font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+           background: #f4f6f4; color: #1c1c1c; margin: 0; padding: 24px; }
+    h1 { color: #1e7a3c; font-size: 1.6rem; }
+    .desc { color: #555; max-width: 640px; line-height: 1.6; }
+
+    /* 배포 주소 입력: QR에 들어갈 기본 URL */
+    .baseurl-box { margin: 18px 0; padding: 16px; background: #fff; border: 2px solid #d8ddd8;
+                   border-radius: 12px; max-width: 640px; }
+    .baseurl-box label { font-weight: 700; display: block; margin-bottom: 6px; }
+    .baseurl-box input { width: 100%; padding: 10px; font-size: 1rem; box-sizing: border-box;
+                         border: 2px solid #c7d0c7; border-radius: 8px; }
+    .baseurl-box small { color: #777; }
+
+    /* 건물 그룹 / 층 그룹 헤더 */
+    .building-group { margin-top: 28px; }
+    .building-title { font-size: 1.3rem; color: #1e7a3c; border-bottom: 3px solid #1e7a3c;
+                      padding-bottom: 6px; margin: 0 0 4px; }
+    .floor-title { font-size: 1.05rem; font-weight: 700; color: #555; margin: 16px 0 8px; }
+
+    /* QR 카드 격자 — '사진만' 간결하게: QR 이미지 + 위치명 */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px; }
+    .qr-card { background: #fff; border: 2px solid #1e7a3c; border-radius: 14px;
+               padding: 14px; text-align: center; page-break-inside: avoid; }
+    .qr-card .qr { display: inline-block; }
+    .qr-card .name { font-size: 1.15rem; font-weight: 800; margin: 10px 0 4px; }
+    /* 카드별 PNG 저장 버튼 (인쇄 시 숨김) */
+    .qr-card .dl { padding: 7px 14px; font-size: .9rem; font-weight: 700; color: #1e7a3c;
+                   background: #eef5ee; border: 1.5px solid #1e7a3c; border-radius: 8px; cursor: pointer; }
+
+    .toolbar { margin: 16px 0; }
+    .toolbar button { padding: 12px 22px; font-size: 1.05rem; font-weight: 700; color: #fff;
+                      background: #1e7a3c; border: none; border-radius: 10px; cursor: pointer; }
+
+    /* 인쇄 시 입력/안내 숨기고 QR만 깔끔하게. 건물마다 새 페이지로 분리 */
+    @media print {
+      body { background: #fff; padding: 0; }
+      .no-print { display: none !important; }
+      .grid { gap: 12px; }
+      .building-group { page-break-before: always; }
+      .building-group:first-of-type { page-break-before: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <h1 class="no-print">🏷️ 가락몰 길찾기 · QR코드 생성</h1>
+  <p class="desc no-print">
+    아래 QR코드는 <code>locations.json</code> 의 각 위치를 <strong>건물(관)·층별로 구분</strong>해 보여줍니다.
+    방문객이 QR을 스캔하면 그 위치를 "현재 위치"로 한 길찾기 화면이 열립니다.
+    QR을 만들어 <strong>해당 위치의 벽·기둥에 부착</strong>하세요.
+    인쇄하면(<strong>Ctrl/Cmd + P</strong>) 건물마다 새 페이지로 나뉘어 출력됩니다.
+  </p>
+
+  <!-- 배포 주소: 실제 운영 시 이 앱이 올라간 도메인을 넣으세요 -->
+  <div class="baseurl-box no-print">
+    <label for="baseUrl">배포 기본 주소 (앱이 올라갈 URL)</label>
+    <input id="baseUrl" type="text" />
+    <small>예: <code>https://garak.example.com/index.html</code> — 여기에 <code>?loc=...</code> 가 자동으로 붙습니다.
+      값을 바꾸면 QR이 즉시 갱신됩니다.</small>
+  </div>
+
+  <div class="toolbar no-print">
+    <button type="button" onclick="window.print()">🖨️ 전체 인쇄 / PDF 저장</button>
+    <button type="button" id="downloadAll">📥 QR 전체 PNG 저장</button>
+  </div>
+
+  <div id="output"><!-- 건물→층 그룹 + QR 카드 동적 생성 --></div>
+
+  <script src="vendor/qrcode.min.js"></script>
+  <script>
+    // 기본 주소: 현재 페이지 경로에서 admin-qr.html → index.html 로 치환한 값을 초기값으로
+    const defaultBase = location.href.replace(/admin-qr\.html.*$/, "index.html");
+    const baseInput = document.getElementById("baseUrl");
+    baseInput.value = defaultBase;
+
+    let LOCATIONS = [];
+
+    // 카드 한 장의 QR을 PNG 파일로 저장 (qrcodejs가 만든 <canvas> 를 PNG로 변환)
+    function downloadCard(card) {
+      const canvas = card.querySelector("canvas");
+      if (!canvas) return;
+      const link = document.createElement("a");
+      link.download = `qr-${card.dataset.locId}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    }
+
+    // 모든 QR을 차례로 PNG 저장 (브라우저가 여러 다운로드를 묻을 수 있어 약간의 간격을 둠)
+    function downloadAll() {
+      const cards = [...document.querySelectorAll(".qr-card")];
+      cards.forEach((card, i) => setTimeout(() => downloadCard(card), i * 350));
+    }
+
+    // locations.json 로드 (※ file:// 직접 열기 시 fetch 차단 → README의 로컬 서버 사용)
+    async function loadAndRender() {
+      try {
+        const res = await fetch("locations.json");
+        LOCATIONS = (await res.json()).locations;
+      } catch (e) {
+        document.getElementById("output").innerHTML =
+          "<p style='color:#b00'>locations.json 을 불러오지 못했습니다. README의 '실행 방법'대로 로컬 서버로 여세요.</p>";
+        return;
+      }
+      render();
+    }
+
+    // 위치 목록을 건물(관) → 층 순으로 그룹핑하는 헬퍼
+    function groupByBuildingFloor(list) {
+      const buildings = {};        // { 건물명: { 층번호: [loc, ...] } }
+      list.forEach((loc) => {
+        const b = loc.building || "(건물 미지정)";
+        (buildings[b] = buildings[b] || {});
+        (buildings[b][loc.floor] = buildings[b][loc.floor] || []).push(loc);
+      });
+      return buildings;
+    }
+
+    // 입력된 기본 주소 + ?loc=<locId> 로, 건물·층별로 묶어 QR 생성
+    function render() {
+      const base = baseInput.value.trim();
+      const out = document.getElementById("output");
+      out.innerHTML = "";
+
+      const buildings = groupByBuildingFloor(LOCATIONS);
+
+      // 건물 이름 정렬
+      Object.keys(buildings).sort().forEach((bName) => {
+        const group = document.createElement("section");
+        group.className = "building-group";
+        group.innerHTML = `<h2 class="building-title">🏬 ${bName}</h2>`;
+
+        // 층 오름차순
+        Object.keys(buildings[bName]).sort((a, b) => a - b).forEach((floor) => {
+          const floorWrap = document.createElement("div");
+          floorWrap.innerHTML = `<p class="floor-title">${floor}층</p>`;
+
+          const grid = document.createElement("div");
+          grid.className = "grid";
+
+          buildings[bName][floor].forEach((loc) => {
+            const url = `${base}?loc=${encodeURIComponent(loc.locId)}`;
+            const card = document.createElement("div");
+            card.className = "qr-card";
+            card.dataset.locId = loc.locId;   // PNG 저장 시 파일명으로 사용
+            // '사진만' 간결화: QR 이미지 + 위치명 + 저장 버튼
+            card.innerHTML =
+              `<div class="qr"></div><p class="name">${loc.name}</p>` +
+              `<button type="button" class="dl no-print">📥 PNG 저장</button>`;
+            grid.appendChild(card);
+
+            // QR 이미지 렌더 (라이브러리: qrcodejs → 내부에 <canvas> 생성)
+            new QRCode(card.querySelector(".qr"), {
+              text: url,
+              width: 180,
+              height: 180,
+              correctLevel: QRCode.CorrectLevel.M, // 중간 오류복원 — 인쇄 후 약간 손상돼도 인식
+            });
+
+            // 카드별 PNG 다운로드
+            card.querySelector(".dl").addEventListener("click", () => downloadCard(card));
+          });
+
+          floorWrap.appendChild(grid);
+          group.appendChild(floorWrap);
+        });
+
+        out.appendChild(group);
+      });
+    }
+
+    baseInput.addEventListener("input", render); // 주소 바꾸면 즉시 갱신
+    document.getElementById("downloadAll").addEventListener("click", downloadAll);
+    loadAndRender();
+  </script>
+</body>
+</html>

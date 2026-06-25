@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<!-- 가락몰 길찾기 — 운영자용 구역 좌표 매핑 도구 / 생성일: 2026-06-25 -->
+<!-- zones.json 의 각 구역(building+층)을 배치도 위에서 클릭해 대표 x,y 좌표를 입력하고,
+     수정된 zones.json 을 내보냅니다. 매장은 자기 구역의 대표좌표를 상속합니다(app.js storeXY).
+     1,555개 매장을 전수 클릭하는 대신 ~48개 구역만 찍으면 됩니다. -->
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>가락몰 길찾기 · 구역 좌표 매핑</title>
+  <style>
+    body { font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+           margin: 0; background: #f4f6f4; color: #1c1c1c; }
+    header { background: #1e7a3c; color: #fff; padding: 12px 18px; }
+    header h1 { margin: 0; font-size: 1.3rem; }
+    header p { margin: 4px 0 0; font-size: .9rem; opacity: .9; }
+
+    .layout { display: flex; gap: 16px; padding: 16px; align-items: flex-start; }
+    .panel { width: 340px; flex: 0 0 340px; }
+    .map-area { flex: 1; min-width: 0; }
+
+    .box { background: #fff; border: 1px solid #d8ddd8; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+    .box h2 { font-size: 1rem; margin: 0 0 8px; color: #1e7a3c; }
+
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+    .toolbar button { font-weight: 700; color: #fff; background: #1e7a3c; border: none; border-radius: 8px; cursor: pointer; padding: 9px 12px; font-size: .9rem; }
+    .toolbar button.secondary { background: #fff; color: #1e7a3c; border: 1.5px solid #1e7a3c; }
+
+    ul.zone-list { list-style: none; margin: 0; padding: 0; max-height: 460px; overflow-y: auto; }
+    ul.zone-list li { padding: 8px 10px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    ul.zone-list li:hover { background: #eef5ee; }
+    ul.zone-list li.selected { background: #1e7a3c; color: #fff; }
+    ul.zone-list li.unset .badge { background: #e8731a; }
+    ul.zone-list li.done .badge { background: #1e7a3c; }
+    .zone-name { font-size: .95rem; }
+    .zone-cnt { font-size: .75rem; color: #888; }
+    li.selected .zone-cnt { color: #d6efd6; }
+    .badge { font-size: .7rem; color: #fff; border-radius: 999px; padding: 2px 7px; white-space: nowrap; }
+    li.selected .badge { background: #fff !important; color: #1e7a3c; }
+
+    .hint { font-size: .85rem; color: #666; line-height: 1.5; }
+    .status { font-weight: 700; color: #e8731a; min-height: 1.3em; }
+    .file-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .map-wrap { background: #fff; border: 1px solid #d8ddd8; border-radius: 10px; overflow: hidden; }
+    #mapSvg { display: block; width: 100%; height: auto; cursor: crosshair; background: #fbfcfb; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📍 가락몰 구역 좌표 매핑 도구</h1>
+    <p>구역을 고르고 → 배치도를 클릭해 대표 위치를 찍으세요 → 다 되면 zones.json 내보내기 (매장은 구역 좌표를 상속)</p>
+  </header>
+
+  <div class="layout">
+    <div class="panel">
+      <div class="box">
+        <h2>1. 배경 평면도</h2>
+        <select id="planSelect" style="width:100%;padding:7px;font-size:.9rem;">
+          <option value="">(격자 배경)</option>
+        </select>
+        <p class="hint">구역을 선택하면 그 건물·층의 <b>공식 평면도가 자동으로 배경에 깔립니다.</b>
+          위 목록에서 직접 바꿀 수도 있어요.</p>
+        <div class="file-row"><input id="bgImage" type="file" accept="image/*" /></div>
+      </div>
+
+      <div class="box">
+        <h2>2. 구역 선택 <span id="counter" class="hint"></span></h2>
+        <p id="status" class="status"></p>
+        <ul id="zoneList" class="zone-list"></ul>
+      </div>
+
+      <div class="box">
+        <h2>3. 저장</h2>
+        <div class="toolbar">
+          <button id="exportBtn">💾 zones.json 내보내기</button>
+          <button id="loadBtn" class="secondary">📂 zones.json 불러오기</button>
+          <input id="loadFile" type="file" accept="application/json" hidden />
+        </div>
+        <p class="hint">내보낸 파일로 <code>zones.json</code> 을 교체하면 길찾기 앱에 즉시 반영됩니다.</p>
+      </div>
+    </div>
+
+    <div class="map-area">
+      <div class="map-wrap">
+        <svg id="mapSvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"
+             xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let DATA = null;        // zones.json 전체
+    let ZONES = [];         // 구역 배열
+    let PLANS = [];         // 평면도 인덱스(floorplans/index.json)
+    let selectedKey = null; // 선택된 구역 key
+    let bgHref = null;
+
+    const svg = document.getElementById("mapSvg");
+
+    async function init() {
+      try {
+        DATA = await (await fetch("zones.json")).json();
+      } catch (e) {
+        alert("zones.json 을 불러오지 못했습니다. 로컬 서버로 여세요(README 참고).");
+        return;
+      }
+      ZONES = DATA.zones || [];
+      // 평면도 인덱스 로드(선택적) → 드롭다운 채우기
+      try {
+        PLANS = (await (await fetch("floorplans/index.json")).json()).plans || [];
+        const sel = document.getElementById("planSelect");
+        PLANS.forEach((p) => sel.add(new Option(`${p.label} (${p.file})`, p.file)));
+      } catch (e) { /* 평면도 없으면 격자 배경으로 동작 */ }
+      renderList();
+      renderMap();
+    }
+
+    // 구역(building+층) → 공식 평면도 파일 추천
+    function dongOf(b) {
+      if (b.includes("5관")) return "A";
+      if (b.includes("4관")) return "B";
+      if (b.includes("1관")) return "E";
+      if (b.includes("업무동")) return "F";
+      if (b.includes("판매동")) return "G";
+      if (b.includes("2관")) return "C";   // 2관은 C/D 두 구역 → 기본 C
+      if (b.includes("3관")) return "D";
+      return null;
+    }
+    function floorCode(f) { return f < 0 ? "B" + (-f) : f + "F"; }
+    function recommendPlan(z) {
+      const d = dongOf(z.building);
+      if (!d) return "";
+      const file = `${d}_${floorCode(z.floor)}_all.png`;
+      return PLANS.some((p) => p.file === file) ? file : "";
+    }
+    // 배경 평면도 설정
+    function setPlan(file) {
+      document.getElementById("planSelect").value = file || "";
+      bgHref = file ? `floorplans/${file}` : null;
+      renderMap();
+    }
+
+    function hasXY(z) { return Number.isFinite(z.x) && Number.isFinite(z.y); }
+
+    function renderList() {
+      const ul = document.getElementById("zoneList");
+      ul.innerHTML = "";
+      ZONES.forEach((z) => {
+        const li = document.createElement("li");
+        const set = hasXY(z);
+        li.className = (z.key === selectedKey ? "selected " : "") + (set ? "done" : "unset");
+        li.innerHTML = `<span><span class="zone-name">${z.name}</span>
+                          <span class="zone-cnt">· ${z.count}개 매장</span></span>
+                        <span class="badge">${set ? "설정됨" : "미설정"}</span>`;
+        li.onclick = () => {
+          selectedKey = z.key;
+          const rec = recommendPlan(z);   // 이 구역에 맞는 평면도 자동 추천
+          if (rec) setPlan(rec);
+          renderList(); renderMap(); updateStatus();
+        };
+        ul.appendChild(li);
+      });
+      const done = ZONES.filter(hasXY).length;
+      document.getElementById("counter").textContent = `(${done}/${ZONES.length} 완료)`;
+    }
+
+    function updateStatus() {
+      const z = ZONES.find((x) => x.key === selectedKey);
+      document.getElementById("status").textContent = z
+        ? `▶ "${z.name}" 선택됨 — 배치도에서 이 구역 위치를 클릭하세요`
+        : "";
+    }
+
+    function renderMap() {
+      let parts = "";
+      if (bgHref) {
+        parts += `<image href="${bgHref}" x="0" y="0" width="1000" height="1000" preserveAspectRatio="xMidYMid meet"/>`;
+      } else {
+        parts += `<rect x="0" y="0" width="1000" height="1000" fill="#fbfcfb"/>`;
+        for (let i = 100; i < 1000; i += 100) {
+          parts += `<line x1="${i}" y1="0" x2="${i}" y2="1000" stroke="#eef" stroke-width="1"/>`;
+          parts += `<line x1="0" y1="${i}" x2="1000" y2="${i}" stroke="#eef" stroke-width="1"/>`;
+        }
+      }
+      // 좌표가 찍힌 구역 점 표시
+      ZONES.forEach((z) => {
+        if (!hasXY(z)) return;
+        const sel = z.key === selectedKey;
+        const color = sel ? "#e8731a" : "#1e7a3c";
+        const r = sel ? 16 : 11;
+        parts += `<circle cx="${z.x}" cy="${z.y}" r="${r}" fill="${color}" stroke="#fff" stroke-width="3"/>`;
+        parts += `<text x="${z.x}" y="${z.y - r - 4}" font-size="18" text-anchor="middle" fill="${color}" font-weight="700">${z.name}</text>`;
+      });
+      svg.innerHTML = parts;
+    }
+
+    // 배치도 클릭 → 선택 구역의 x,y 설정 (SVG 좌표계 변환)
+    svg.addEventListener("click", (ev) => {
+      const z = ZONES.find((x) => x.key === selectedKey);
+      if (!z) { document.getElementById("status").textContent = "먼저 구역을 선택하세요."; return; }
+      const pt = svg.createSVGPoint();
+      pt.x = ev.clientX; pt.y = ev.clientY;
+      const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+      z.x = Math.round(p.x);
+      z.y = Math.round(p.y);
+      renderList();
+      renderMap();
+    });
+
+    // 드롭다운으로 평면도 직접 선택
+    document.getElementById("planSelect").addEventListener("change", (ev) => {
+      setPlan(ev.target.value);
+    });
+
+    // 직접 이미지 업로드(공식 평면도 외 다른 도면 쓰고 싶을 때)
+    document.getElementById("bgImage").addEventListener("change", (ev) => {
+      const file = ev.target.files[0];
+      if (!file) return;
+      document.getElementById("planSelect").value = "";
+      bgHref = URL.createObjectURL(file);
+      renderMap();
+    });
+
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.download = "zones.json";
+      link.href = URL.createObjectURL(blob);
+      link.click();
+    });
+
+    document.getElementById("loadBtn").addEventListener("click", () =>
+      document.getElementById("loadFile").click());
+    document.getElementById("loadFile").addEventListener("change", (ev) => {
+      const file = ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        DATA = JSON.parse(reader.result);
+        ZONES = DATA.zones || [];
+        selectedKey = null;
+        renderList();
+        renderMap();
+      };
+      reader.readAsText(file);
+    });
+
+    init();
+  </script>
+</body>
+</html>

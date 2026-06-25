@@ -1,0 +1,185 @@
+{
+  "_comment": "층별 평면도 인덱스. admin-map.html 배경으로 사용.",
+  "plans": [
+    {
+      "file": "A_1F_all.png",
+      "dong": "A",
+      "floorCode": "1F",
+      "label": "가락몰 5관 1층"
+    },
+    {
+      "file": "A_2F_all.png",
+      "dong": "A",
+      "floorCode": "2F",
+      "label": "가락몰 5관 2층"
+    },
+    {
+      "file": "A_3F_all.png",
+      "dong": "A",
+      "floorCode": "3F",
+      "label": "가락몰 5관 3층"
+    },
+    {
+      "file": "B_1F_all.png",
+      "dong": "B",
+      "floorCode": "1F",
+      "label": "가락몰 4관 1층"
+    },
+    {
+      "file": "B_2F_all.png",
+      "dong": "B",
+      "floorCode": "2F",
+      "label": "가락몰 4관 2층"
+    },
+    {
+      "file": "B_3F_all.png",
+      "dong": "B",
+      "floorCode": "3F",
+      "label": "가락몰 4관 3층"
+    },
+    {
+      "file": "B_B1_all.png",
+      "dong": "B",
+      "floorCode": "B1",
+      "label": "가락몰 4관 지하1층"
+    },
+    {
+      "file": "C_1F_all.png",
+      "dong": "C",
+      "floorCode": "1F",
+      "label": "가락몰 2관(C) 1층"
+    },
+    {
+      "file": "C_2F_all.png",
+      "dong": "C",
+      "floorCode": "2F",
+      "label": "가락몰 2관(C) 2층"
+    },
+    {
+      "file": "C_3F_all.png",
+      "dong": "C",
+      "floorCode": "3F",
+      "label": "가락몰 2관(C) 3층"
+    },
+    {
+      "file": "D_1F_all.png",
+      "dong": "D",
+      "floorCode": "1F",
+      "label": "가락몰 2관(D) 1층"
+    },
+    {
+      "file": "D_2F_all.png",
+      "dong": "D",
+      "floorCode": "2F",
+      "label": "가락몰 2관(D) 2층"
+    },
+    {
+      "file": "D_3F_all.png",
+      "dong": "D",
+      "floorCode": "3F",
+      "label": "가락몰 2관(D) 3층"
+    },
+    {
+      "file": "E_1F_all.png",
+      "dong": "E",
+      "floorCode": "1F",
+      "label": "가락몰 1관 1층"
+    },
+    {
+      "file": "E_2F_all.png",
+      "dong": "E",
+      "floorCode": "2F",
+      "label": "가락몰 1관 2층"
+    },
+    {
+      "file": "E_3F_all.png",
+      "dong": "E",
+      "floorCode": "3F",
+      "label": "가락몰 1관 3층"
+    },
+    {
+      "file": "F_10F_all.png",
+      "dong": "F",
+      "floorCode": "10F",
+      "label": "업무동 10층"
+    },
+    {
+      "file": "F_12F_all.png",
+      "dong": "F",
+      "floorCode": "12F",
+      "label": "업무동 12층"
+    },
+    {
+      "file": "F_13F_all.png",
+      "dong": "F",
+      "floorCode": "13F",
+      "label": "업무동 13층"
+    },
+    {
+      "file": "F_1F_all.png",
+      "dong": "F",
+      "floorCode": "1F",
+      "label": "업무동 1층"
+    },
+    {
+      "file": "F_2F_all.png",
+      "dong": "F",
+      "floorCode": "2F",
+      "label": "업무동 2층"
+    },
+    {
+      "file": "F_3F_all.png",
+      "dong": "F",
+      "floorCode": "3F",
+      "label": "업무동 3층"
+    },
+    {
+      "file": "F_4F_all.png",
+      "dong": "F",
+      "floorCode": "4F",
+      "label": "업무동 4층"
+    },
+    {
+      "file": "F_5F_all.png",
+      "dong": "F",
+      "floorCode": "5F",
+      "label": "업무동 5층"
+    },
+    {
+      "file": "F_6F_all.png",
+      "dong": "F",
+      "floorCode": "6F",
+      "label": "업무동 6층"
+    },
+    {
+      "file": "F_8F_all.png",
+      "dong": "F",
+      "floorCode": "8F",
+      "label": "업무동 8층"
+    },
+    {
+      "file": "F_9F_all.png",
+      "dong": "F",
+      "floorCode": "9F",
+      "label": "업무동 9층"
+    },
+    {
+      "file": "G_3F_all.png",
+      "dong": "G",
+      "floorCode": "3F",
+      "label": "판매동 3층"
+    },
+    {
+      "file": "G_B1_all.png",
+      "dong": "G",
+      "floorCode": "B1",
+      "label": "판매동 지하1층"
+    },
+    {
+      "file": "G_B2_all.png",
+      "dong": "G",
+      "floorCode": "B2",
+      "label": "판매동 지하2층"
+    }
+  ]
+}
