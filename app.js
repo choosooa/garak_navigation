@@ -9,6 +9,12 @@ let currentLoc = null;  // 현재 위치(QR) 객체
 let destStore = null;   // 현재 안내 중인 목적지 매장
 let shownFloor = 1;     // 지도에 표시 중인 층
 
+// 방향 정렬 네비게이션 상태
+let USER_HEADING = null;   // 실시간 나침반 방위(0~360) — 없으면 null(QR 고정값 폴백)
+let COMPASS_ON = false;    // 나침반 리스너 부착 여부(중복 부착 방지)
+let rafPending = false;    // applyHeading rAF 예약 중복 방지
+const ARRIVE_R = 40;       // 도착 판정 거리(SVG 단위). 이보다 가까우면 화살표 숨김
+
 // 매장의 지도 좌표를 구한다.
 // 1순위: 매장 자체 x,y(정밀)  2순위: 자기 구역(building+층)의 대표좌표  없으면 null
 function storeXY(s) {
@@ -78,7 +84,7 @@ function renderCategoryButtons() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.textContent = c.label;
-    btn.addEventListener("click", () => handleQuery(c.terms[0]));
+    btn.addEventListener("click", () => { enableCompass(); handleQuery(c.terms[0]); });
     box.appendChild(btn);
   });
 }
@@ -130,13 +136,86 @@ function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+// ── 방위 계산 ──────────────────────────────────────────────
+// from→to 의 화면 방위각(0~360). 화면 '위'=북=0, 시계방향(동90·남180·서270).
+// SVG 는 y가 아래로 증가하므로 -dy 로 '위'를 북쪽에 맞춘다.
+function bearingTo(from, to) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const deg = (Math.atan2(dx, -dy) * 180) / Math.PI;
+  return (deg + 360) % 360;
+}
+
+// 현재 사용할 방위: 라이브 나침반 우선 → QR 고정값 → 없으면 북(0).
+function activeHeading() {
+  if (USER_HEADING != null) return USER_HEADING;
+  return currentLoc.heading ?? 0;
+}
+
+// 각도 저주파 필터(떨림 완화). 최단호로 보간한다.
+function lowpassAngle(prev, next, a) {
+  const diff = ((next - prev + 540) % 360) - 180;
+  return (prev + a * diff + 360) % 360;
+}
+
+// ── 나침반(DeviceOrientation) ──────────────────────────────
+// 폰 방향 변화를 받아 지도/화살표를 실시간 회전. 미지원·미허용·HTTP면 조용히
+// 폴백(QR 고정값). 권한은 반드시 사용자 제스처(버튼 탭) 안에서 요청해야 한다(iOS).
+function enableCompass() {
+  if (COMPASS_ON) return;
+  if (!window.isSecureContext) return;            // http → QR 고정 폴백
+  const DOE = window.DeviceOrientationEvent;
+  if (!DOE) return;
+
+  const attach = () => {
+    if (COMPASS_ON) return;
+    COMPASS_ON = true;
+    window.addEventListener("deviceorientationabsolute", onOrientation, true);
+    window.addEventListener("deviceorientation", onOrientation, true);
+  };
+
+  if (typeof DOE.requestPermission === "function") {
+    // iOS Safari: 제스처 동기 경로에서 권한 팝업
+    DOE.requestPermission().then((res) => { if (res === "granted") attach(); }).catch(() => {});
+  } else {
+    attach();   // Android/기타
+  }
+}
+
+// 방향 이벤트 → heading 산출 → 필터 → rAF로 applyHeading 1회 예약.
+function onOrientation(e) {
+  // absolute 이벤트를 받기 시작하면 일반 deviceorientation 리스너를 떼어
+  // 둘 다 발생하는 기기에서 onOrientation 이 한 틱에 두 번 도는 것을 막는다.
+  if (e.type === "deviceorientationabsolute") {
+    window.removeEventListener("deviceorientation", onOrientation, true);
+  }
+  let h;
+  if (typeof e.webkitCompassHeading === "number") {
+    h = e.webkitCompassHeading;            // iOS: 북=0 시계방향
+  } else if (e.absolute && typeof e.alpha === "number") {
+    h = (360 - e.alpha) % 360;             // Android: alpha 보정
+  } else {
+    return;                                // 보정 불가 → 폴백 유지
+  }
+  USER_HEADING = USER_HEADING == null ? h : lowpassAngle(USER_HEADING, h, 0.15);
+  if (!rafPending) {
+    rafPending = true;
+    requestAnimationFrame(() => { rafPending = false; applyHeading(); });
+  }
+}
+
 // ── 결과 카드 ──────────────────────────────────────────────
 function showResultCard(query, store) {
   const card = document.getElementById("resultCard");
   const sameFloor = store.floor === currentLoc.floor;
-  const floorNote = sameFloor
-    ? `같은 ${store.floor}층입니다. 지도의 선을 따라가세요.`
-    : `현재 ${currentLoc.floor}층 → 목적지 ${store.floor}층. 에스컬레이터로 ${store.floor}층 이동 후 안내를 따르세요.`;
+  const xy = storeXY(store);
+  const arrived = sameFloor && xy && dist(currentLoc, xy) < ARRIVE_R;
+
+  const floorNote = !sameFloor
+    ? `현재 ${currentLoc.floor}층 → 목적지 ${store.floor}층. 에스컬레이터로 ${store.floor}층 이동 후 안내를 따르세요.`
+    : arrived
+    ? `이 구역에 도착했어요. 같은 구역의 매대를 둘러보세요.`
+    : `같은 ${store.floor}층입니다. 화면의 화살표 방향으로 가세요.`;
 
   card.innerHTML = `
     <h2>📍 ${store.name}</h2>
@@ -144,6 +223,7 @@ function showResultCard(query, store) {
     <p class="store-meta"><span class="label">구역</span> ${store.zone} · ${store.floor}층</p>
     <div class="tags">${store.categories.map((c) => `<span class="tag">${c}</span>`).join("")}</div>
     <p class="floor-note">🧭 ${floorNote}</p>
+    <p class="zone-note">방향 안내는 구역 단위입니다(매장 정밀위치는 추후 반영).</p>
   `;
   card.classList.remove("hidden");
 }
@@ -176,30 +256,78 @@ function renderFloorTabs() {
 }
 
 // ── 지도(SVG) 그리기 ───────────────────────────────────────
-// 자체 SVG 평면도 + 현재 위치/목적지 마커 + 경로선
+// 자체 SVG 평면도 + 현재 위치/목적지 마커 + 경로선.
+// 배경·경로·마커는 회전 그룹(#mapRotate)에 넣어 사용자 방향만큼 통째로 돌리고,
+// 진행 화살표(#dirArrow)는 회전 그룹 바깥에서 목적지 상대방향을 가리킨다.
+// ※ 전체 재렌더는 층 전환·새 목적지 때만. 나침반 갱신은 applyHeading()이 transform만 바꿈.
 function renderMap() {
   const svg = document.getElementById("mapSvg");
-  // 1) 배경 평면도 (단순한 통로/구역 표현)
-  let svgParts = drawFloorPlanBackground(shownFloor);
 
-  // 2) 현재 위치 마커 (해당 층일 때만)
   const onFloorCurrent = currentLoc.floor === shownFloor;
-  // 3) 목적지 마커 (해당 층일 때만)
   const onFloorDest = destStore && destStore.floor === shownFloor;
-
-  // 목적지 좌표(매장 정밀 or 구역 대표)
   const destXY = destStore ? storeXY(destStore) : null;
 
-  // 4) 경로선: 현재 위치와 목적지가 같은 층에 함께 보일 때만 직접 연결
+  // 회전 그룹 내부: 배경 + 경로 + 마커
+  let inner = drawFloorPlanBackground(shownFloor);
   if (onFloorCurrent && onFloorDest && destXY) {
-    svgParts += routePath(currentLoc, destXY);
+    inner += routePath(currentLoc, destXY);
+  }
+  if (onFloorCurrent) inner += marker(currentLoc.x, currentLoc.y, "#1e7a3c", "현재위치", "●");
+  if (onFloorDest && destXY) inner += marker(destXY.x, destXY.y, "#e8731a", destStore.name, "★");
+
+  // 화살표 중심 = 현재위치(없으면 화면 중앙). 회전 그룹 바깥에 둔다.
+  const cx = onFloorCurrent ? currentLoc.x : 500;
+  const cy = onFloorCurrent ? currentLoc.y : 500;
+
+  svg.innerHTML =
+    `<g id="mapRotate">${inner}</g>` + directionArrow(cx, cy);
+
+  applyHeading();   // 현재 방위로 회전·화살표 적용
+}
+
+// 진행 화살표(위=북 기본). applyHeading()이 rotate(rel, cx, cy)로 목적지 방향 지시.
+function directionArrow(cx, cy) {
+  const tip = cy - 160;        // 화살촉 끝
+  const base = cy - 50;        // 막대 시작(현재위치 마커 위)
+  return `<g id="dirArrow" style="display:none">
+    <line x1="${cx}" y1="${base}" x2="${cx}" y2="${tip + 36}" stroke="#fff" stroke-width="30" stroke-linecap="round"/>
+    <line x1="${cx}" y1="${base}" x2="${cx}" y2="${tip + 36}" stroke="#e8731a" stroke-width="20" stroke-linecap="round"/>
+    <polygon points="${cx},${tip} ${cx - 40},${tip + 52} ${cx + 40},${tip + 52}" fill="#e8731a" stroke="#fff" stroke-width="5" stroke-linejoin="round"/>
+  </g>`;
+}
+
+// 재렌더 없이 transform 만 갱신: 지도 회전 + 화살표 방향 + 라벨 정립.
+function applyHeading() {
+  const H = activeHeading();
+  const g = document.getElementById("mapRotate");
+  if (!g) return;
+
+  const onFloor = currentLoc.floor === shownFloor;
+  const cx = onFloor ? currentLoc.x : 500;
+  const cy = onFloor ? currentLoc.y : 500;
+
+  // 지도 회전: 사용자가 향한 방향(H)을 화면 위(0)로. 현재 층 아닐 땐 회전 안 함.
+  g.setAttribute("transform", onFloor ? `rotate(${-H} ${cx} ${cy})` : "");
+
+  // 진행 화살표: 같은 층 + 목적지 존재 + 도착 임계 밖일 때만 표시
+  const arrow = document.getElementById("dirArrow");
+  if (arrow) {
+    const destXY = destStore ? storeXY(destStore) : null;
+    const show =
+      onFloor && destXY && destStore.floor === shownFloor &&
+      dist(currentLoc, destXY) >= ARRIVE_R;
+    arrow.style.display = show ? "" : "none";
+    if (show) {
+      const rel = (bearingTo(currentLoc, destXY) - H + 360) % 360;
+      arrow.setAttribute("transform", `rotate(${rel} ${cx} ${cy})`);
+    }
   }
 
-  // 마커는 선 위에 오도록 마지막에 그림
-  if (onFloorCurrent) svgParts += marker(currentLoc.x, currentLoc.y, "#1e7a3c", "현재위치", "●");
-  if (onFloorDest && destXY) svgParts += marker(destXY.x, destXY.y, "#e8731a", destStore.name, "★");
-
-  svg.innerHTML = svgParts;
+  // 라벨 정립: 지도가 rotate(-H)일 때만 각 라벨을 rotate(+H)로 역회전.
+  // 다른 층이면 지도가 회전하지 않으므로 라벨도 회전하지 않는다(삐뚤어짐 방지).
+  g.querySelectorAll(".lbl").forEach((el) => {
+    el.setAttribute("transform", onFloor ? `rotate(${H} ${el.dataset.x} ${el.dataset.y})` : "");
+  });
 }
 
 // 단순 평면도 배경: 외벽 + 통로(중앙 십자) + 구역 블록 격자
@@ -235,15 +363,16 @@ function routePath(from, to) {
 }
 
 // 마커: 원 + 아이콘 + 라벨
+// 라벨(rect+text)은 .lbl 그룹으로 감싸 지도 회전 시 마커 중심 기준으로 역회전(글자 정립).
 function marker(x, y, color, label, glyph) {
-  // 라벨이 지도 밖으로 나가지 않게 좌우 정렬 간단 보정
-  const anchor = x > 820 ? "end" : x < 180 ? "start" : "middle";
   return `
     <g>
       <circle cx="${x}" cy="${y}" r="26" fill="${color}" stroke="#fff" stroke-width="5"/>
       <text x="${x}" y="${y + 9}" font-size="26" fill="#fff" text-anchor="middle" font-weight="700">${glyph}</text>
-      <rect x="${x - 90}" y="${y + 34}" width="180" height="44" rx="10" fill="${color}" opacity="0.95"/>
-      <text x="${x}" y="${y + 63}" font-size="24" fill="#fff" text-anchor="middle" font-weight="700">${label}</text>
+      <g class="lbl" data-x="${x}" data-y="${y}">
+        <rect x="${x - 90}" y="${y + 34}" width="180" height="44" rx="10" fill="${color}" opacity="0.95"/>
+        <text x="${x}" y="${y + 63}" font-size="24" fill="#fff" text-anchor="middle" font-weight="700">${label}</text>
+      </g>
     </g>`;
 }
 
@@ -280,6 +409,7 @@ function setupVoice() {
   let canceled = false;    // 사용자가 다시 눌러 취소했는지
 
   btn.addEventListener("click", () => {
+    enableCompass();   // 사용자 제스처 안에서 나침반 권한 확보(iOS)
     if (listening) {
       // 듣는 중 다시 누르면 취소
       canceled = true;

@@ -115,6 +115,7 @@ main { flex: 1; padding: 20px 16px 16px; }
   padding: 4px 10px; border-radius: 999px; font-size: .95rem; margin: 0 6px 6px 0;
 }
 .result-card .floor-note { margin-top: 10px; font-weight: 700; color: var(--orange); }
+.result-card .zone-note { margin: 6px 0 0; font-size: .9rem; color: var(--muted); }
 
 /* 지도 */
 .map-section { margin-top: 6px; }
