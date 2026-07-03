@@ -29,6 +29,17 @@ let rafPending = false;    // applyHeading rAF 예약 중복 방지
 let VOICE_GUIDE = true;    // 음성 안내(TTS) 켜짐 여부 — 고령 사용자 배려 기본 ON
 let NAV_MODE = "3d";       // 지도 표시 모드: "3d"(1인칭 주행 시점, 기본) | "2d"(전체 지도)
 
+// 걸음 감지 이동(PDR: 보행자 추측항법) 상태
+let TRACKING = true;       // 따라가기 켜짐 (센서 없으면 자동으로 QR 고정 위치 동작)
+let MOTION_ON = false;     // devicemotion 리스너 부착 여부
+let stepRising = false;    // 가속도 피크 감지용 상태
+let accLP = 0;             // 가속도 크기 저역 필터값
+let lastStepT = 0;         // 마지막 걸음 시각(중복 방지)
+let arrivedSpoken = false; // 도착 음성 1회만
+let stepRafPending = false;
+const STEP_METERS = 0.7;   // 한 걸음 보폭(성인 평균 근사)
+const STEP_MIN_MS = 350;   // 걸음 최소 간격
+
 const CANDIDATE_MAX = 8;   // 가게 선택 목록 최대 표시 수 (너무 길면 고령 사용자에게 부담)
 const DEBUG = new URLSearchParams(location.search).get("debug") === "1";
 
@@ -285,6 +296,10 @@ function selectStore(store) {
   // 목적지 배너 (세부 주소는 표시하지 않음 — 지도가 위치를 보여준다)
   document.getElementById("navDestName").textContent = store.name;
 
+  // 걸음 추적 준비: 사용자 제스처(카드 탭) 안에서 센서 권한 확보 + 도착 안내 초기화
+  arrivedSpoken = false;
+  enableMotion();
+
   // 지도: 새 안내는 항상 주행 시점부터. 층간이면 현재 층부터(에스컬레이터까지 1단계 안내)
   NAV_MODE = "3d";
   shownDong = dongOf(currentLoc.building);
@@ -320,6 +335,19 @@ function setupNavButtons() {
     document.getElementById("voiceStatus").textContent = "";
     goStep("input");
   });
+  // 걸음 따라가기 토글 (센서 없는 환경에선 QR 고정 위치로 자연 폴백)
+  const trackBtn = document.getElementById("trackBtn");
+  trackBtn.addEventListener("click", () => {
+    TRACKING = !TRACKING;
+    trackBtn.classList.toggle("off", !TRACKING);
+    if (TRACKING) {
+      enableMotion();   // 사용자 제스처 안에서 권한 요청(iOS)
+      speak("걸음 따라가기를 켰어요. 걸으면 지도가 함께 움직여요.");
+    } else {
+      speak("걸음 따라가기를 껐어요.");
+    }
+  });
+
   const ttsBtn = document.getElementById("ttsBtn");
   ttsBtn.addEventListener("click", () => {
     VOICE_GUIDE = !VOICE_GUIDE;
@@ -393,6 +421,83 @@ function enableCompass() {
     DOE.requestPermission().then((res) => { if (res === "granted") attach(); }).catch(() => {});
   } else {
     attach();   // Android/기타
+  }
+}
+
+// ── 걸음 감지 이동 (PDR: 가속도 피크 = 걸음 1보) ───────────
+// 원리: 걸을 때 폰의 가속도 크기가 중력(9.8) 기준으로 출렁인다. 저역 필터를 거친
+// 가속도가 임계값을 넘었다가 내려오는 순간을 '한 걸음'으로 보고, 지금 바라보는
+// 방향(activeHeading)으로 보폭만큼 지도 위 현재위치를 전진시킨다.
+// 센서 특성상 오차가 누적되므로 실서비스에선 QR 재스캔으로 보정하는 전제의 데모 기능.
+function enableMotion() {
+  if (MOTION_ON) return;
+  if (!window.isSecureContext) return;          // https 필수
+  const DME = window.DeviceMotionEvent;
+  if (!DME) return;
+
+  const attach = () => {
+    if (MOTION_ON) return;
+    MOTION_ON = true;
+    window.addEventListener("devicemotion", onMotion);
+  };
+  if (typeof DME.requestPermission === "function") {
+    // iOS: 사용자 제스처 안에서 권한 요청
+    DME.requestPermission().then((r) => { if (r === "granted") attach(); }).catch(() => {});
+  } else {
+    attach();   // Android/기타
+  }
+}
+
+function onMotion(e) {
+  if (!TRACKING || !destStore) return;          // 안내 중일 때만 위치 추적
+  const a = e.accelerationIncludingGravity;
+  if (!a) return;
+  const mag = Math.hypot(a.x || 0, a.y || 0, a.z || 0);
+  accLP = accLP === 0 ? mag : accLP * 0.7 + mag * 0.3;   // 저역 필터(떨림 완화)
+  const delta = accLP - 9.81;                            // 중력 제거
+  if (!stepRising && delta > 1.1) {
+    stepRising = true;                                   // 피크 상승 시작
+  } else if (stepRising && delta < 0.35) {
+    stepRising = false;                                  // 피크 통과 = 걸음 1보
+    const now = Date.now();
+    if (now - lastStepT > STEP_MIN_MS) {
+      lastStepT = now;
+      doStep();
+    }
+  }
+}
+
+// 한 걸음 전진: 보폭(m) → 평면도 픽셀로 환산해 현재위치 이동
+function doStep() {
+  const plan = planFor(dongOf(currentLoc.building), currentLoc.floor);
+  const mpp = plan && plan.mpp ? plan.mpp : 0.4;
+  const len = STEP_METERS / mpp;
+  const H = (activeHeading() * Math.PI) / 180;
+  if (!currentLoc._live) currentLoc = { ...currentLoc, _live: true };  // 원본 QR 데이터 보호
+  currentLoc.x += Math.sin(H) * len;
+  currentLoc.y -= Math.cos(H) * len;            // 화면 위 = 북
+  if (plan) {                                    // 지도 밖 이탈 방지
+    currentLoc.x = Math.max(10, Math.min(plan.w - 10, currentLoc.x));
+    currentLoc.y = Math.max(10, Math.min(plan.h - 10, currentLoc.y));
+  }
+  onPositionChanged();
+}
+
+// 위치 변경 후: 도착 판정 + 지도 재렌더(경로·마커·3D 기준점 갱신)
+function onPositionChanged() {
+  const xy = destStore ? storeXY(destStore) : null;
+  const sameView = destStore &&
+    viewOf(destStore.building, destStore.floor) === viewOf(currentLoc.building, currentLoc.floor);
+  if (xy && sameView) {
+    const plan = planFor(dongOf(currentLoc.building), currentLoc.floor);
+    if (dist(currentLoc, xy) < arriveR(plan) && !arrivedSpoken) {
+      arrivedSpoken = true;
+      speak(`${destStore.name}에 도착했어요! 주변 매대를 둘러보세요.`);
+    }
+  }
+  if (!stepRafPending) {
+    stepRafPending = true;
+    requestAnimationFrame(() => { stepRafPending = false; renderMap(); });
   }
 }
 
