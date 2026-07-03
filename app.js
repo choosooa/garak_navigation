@@ -557,8 +557,6 @@ function layout3D() {
 // 재렌더 없이 방향 요소만 갱신: 헤딩 콘 회전 + HUD 화살표 방향/거리.
 function applyHeading() {
   const H = activeHeading();
-  const thisView = `${shownDong}|${shownFloor}`;
-  const onFloor = viewOf(currentLoc.building, currentLoc.floor) === thisView;
 
   // 헤딩 콘: 현재위치에서 사용자가 향한 방향
   const cone = document.getElementById("headCone");
@@ -570,42 +568,6 @@ function applyHeading() {
   document.querySelectorAll("#mapSvg .lbl").forEach((el) => {
     el.setAttribute("transform", stage3d ? `rotate(${H} ${el.dataset.x} ${el.dataset.y})` : "");
   });
-
-  // HUD 방향 배지
-  const hud = document.getElementById("hudBadge");
-  if (!hud) return;
-  const arrowEl = hud.querySelector(".hud-arrow");
-  const textEl = hud.querySelector(".hud-text");
-  const destXY = destStore ? storeXY(destStore) : null;
-  const sameView = destStore &&
-    viewOf(destStore.building, destStore.floor) === viewOf(currentLoc.building, currentLoc.floor);
-  const plan = planFor(dongOf(currentLoc.building), currentLoc.floor);
-
-  if (destXY && sameView && onFloor) {
-    const d = dist(currentLoc, destXY);
-    if (d < arriveR(plan)) {
-      // 도착
-      hud.classList.remove("hidden");
-      hud.classList.add("arrived");
-      arrowEl.style.transform = "";
-      arrowEl.textContent = "🎉";
-      textEl.textContent = "도착! 이 구역의 매대를 둘러보세요";
-      return;
-    }
-    const rel = (bearingTo(currentLoc, destXY) - H + 360) % 360;
-    const m = approxMeters(d, plan);
-    hud.classList.remove("hidden", "arrived");
-    arrowEl.textContent = "⬆";
-    arrowEl.style.transform = `rotate(${rel}deg)`;
-    textEl.textContent = m ? `화살표 방향 · 약 ${m}m` : "화살표 방향으로 가세요";
-  } else if (destStore && !sameView) {
-    hud.classList.remove("hidden", "arrived");
-    arrowEl.style.transform = "";
-    arrowEl.textContent = "🛗";
-    textEl.textContent = `에스컬레이터로 ${floorLabel(destStore.floor)} 이동`;
-  } else {
-    hud.classList.add("hidden");
-  }
 }
 
 // 헤딩 콘: 현재위치 마커 아래에 깔리는 부채꼴(사용자가 보는 방향).

@@ -241,8 +241,8 @@ main { flex: 1; padding: 12px 14px 2px; }
 /* 1인칭 모드: 고정 높이 뷰포트 + 원근 기울임(차량 내비 시점).
    지도 자체는 app.js 가 현재위치 기준 회전·확대·이동(transform)을 계산해 적용 */
 .map-stage.mode-3d {
-  height: 300px;
-  height: clamp(240px, 39dvh, 420px);
+  height: 330px;
+  height: clamp(260px, 44dvh, 460px);
   perspective: 560px;
   background: linear-gradient(#d8cfb8 0%, #efe8d6 38%, #fdfcf9 100%);  /* 위쪽=먼 곳 */
 }
@@ -280,23 +280,6 @@ main { flex: 1; padding: 12px 14px 2px; }
 .map-legend .dot.cur { background: var(--green); }
 .map-legend .dot.dest { background: var(--orange); }
 .map-legend .dot.route { background: var(--orange); border-radius: 3px; height: 5px; width: 18px; vertical-align: 2px; }
-
-/* HUD 방향 배지 — 네비게이션 하단 안내 */
-.hud-badge {
-  display: flex; align-items: center; justify-content: center; gap: 14px;
-  background: var(--green);
-  color: #fff;
-  border-radius: 14px;
-  padding: 8px 12px;
-  font-size: 1.1rem;
-  font-weight: 800;
-}
-.hud-badge.arrived { background: var(--orange); }
-.hud-arrow {
-  display: inline-block;
-  font-size: 1.5rem;
-  transition: transform 0.2s ease;
-}
 
 .nav-actions { display: flex; gap: 10px; }
 .nav-actions .big-back { flex: 1; }
