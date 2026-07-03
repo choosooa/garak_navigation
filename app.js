@@ -163,6 +163,15 @@ async function init() {
   renderCategoryButtons();    // 카테고리 버튼 생성
   setupVoice();               // 음성 인식 준비
   setupNavButtons();          // 2·3단계 버튼(뒤로/처음/음성안내) 연결
+
+  // 데모·테스트용 딥링크: ?go=과일 → 자동 검색, &pick=1 → N번째 가게로 바로 안내
+  const params = new URLSearchParams(location.search);
+  const goQ = params.get("go");
+  if (goQ) {
+    handleQuery(goQ);
+    const pick = parseInt(params.get("pick"));
+    if (pick && candidates[pick - 1]) selectStore(candidates[pick - 1].s);
+  }
 }
 
 // URL 파라미터(?loc=g-b1-west)로 현재 위치를 찾습니다. 없으면 첫 위치로 폴백.
@@ -573,15 +582,20 @@ function renderMap() {
     inner += drawFloorPlanBackground(shownFloor);
   }
 
-  // 경로/마커
+  // 경로/마커 (SVG 2D + Three.js 3D 공용 데이터 NAV3D 에 기록)
   const esc = plan && plan.escalator ? { x: plan.escalator[0], y: plan.escalator[1] } : null;
+  NAV3D = { plan, routePts: null, dest: null, destLabel: "", esc: null, onFloorCurrent };
   if (destXY && onFloorCurrent && onFloorDest) {
     // 같은 층: 현재위치 → 목적지
     inner += routeVia(currentLoc, destXY, plan, k);
+    NAV3D.routePts = computeRoutePts(currentLoc, destXY, plan);
+    NAV3D.dest = destXY; NAV3D.destLabel = destStore.name;
   } else if (destXY && onFloorCurrent && !onFloorDest && esc) {
     // 층간 1단계: 현재위치 → 에스컬레이터
     inner += routeVia(currentLoc, esc, plan, k);
     inner += marker(esc.x, esc.y, "#7b5cc4", "에스컬레이터", "🛗", k);
+    NAV3D.routePts = computeRoutePts(currentLoc, esc, plan);
+    NAV3D.esc = esc;
   } else if (destXY && !onFloorCurrent && onFloorDest && esc) {
     // 층간 2단계: 에스컬레이터 → 목적지
     inner += routeVia(esc, destXY, plan, k);
@@ -620,20 +634,221 @@ function is3DActive() {
 }
 
 // 표시 모드 반영: 스테이지 클래스·토글 버튼·층탭 노출 → 3D면 배치 계산
+// 3D는 Three.js(진짜 3D 공간)가 기본, 미지원 기기는 CSS 기울임 뷰로 자동 폴백.
 function updateMapMode() {
   const stage = document.getElementById("mapStage");
   const svg = document.getElementById("mapSvg");
+  const tilt = document.getElementById("fpTilt");
   const active = is3DActive();
+  const useThree = active && threeSupported();
   stage.classList.toggle("mode-3d", active);
   document.getElementById("mode3dBtn").classList.toggle("active", NAV_MODE === "3d");
   document.getElementById("mode2dBtn").classList.toggle("active", NAV_MODE !== "3d");
   // 층탭은 전체 지도에서만 (주행 시점은 항상 내 층 기준)
   document.getElementById("floorTabs").classList.toggle("hidden", active);
+  // Three.js 캔버스 ↔ SVG(기울임 폴백/2D) 표시 전환
+  tilt.style.display = useThree ? "none" : "";
+  if (T && T.canvas) T.canvas.style.display = useThree ? "block" : "none";
   if (!active) {
     svg.style.cssText = "";   // 2D: 인라인 transform 제거 → CSS 기본(width 100%) 복귀
     return;
   }
+  if (useThree) { sync3D(); return; }
   layout3D();
+}
+
+// ── 진짜 3D 공간 렌더링 (Three.js) ─────────────────────────
+// 바닥에 평면도 텍스처를 깔고 매대 블록(blocks3d)을 입체로 세운 뒤,
+// 눈높이(1.6m) 카메라가 현재위치에서 바라보는 방향을 향한다.
+// 걸음(PDR)이 카메라를 전진시키고 나침반이 카메라를 돌린다.
+// 단위: 미터(픽셀좌표 × mpp). Three.js 미지원 기기는 CSS 기울임 뷰로 폴백.
+let T = null;          // { renderer, camera, canvas, scene }
+let NAV3D = null;      // renderMap 이 채우는 3D용 안내 데이터
+const TEX_CACHE = {};  // 평면도 텍스처 캐시 (재렌더 깜빡임 방지)
+
+let THREE_FAIL = false;   // WebGL 컨텍스트 생성 실패(구형 기기 등) → CSS 기울임 폴백
+function threeSupported() { return typeof THREE !== "undefined" && !THREE_FAIL; }
+function threeActive() { return !!(T && T.canvas && T.canvas.style.display !== "none" && T.scene); }
+function mppOf(plan) { return plan && plan.mpp ? plan.mpp : 0.4; }
+
+function ensureThree(stage) {
+  if (T) return T;
+  try {
+    // WebGL 사전 감지 (미지원이면 THREE 가 콘솔 에러를 남기며 던지기 전에 조용히 폴백)
+    const probe = document.createElement("canvas");
+    if (!probe.getContext("webgl") && !probe.getContext("experimental-webgl")) {
+      THREE_FAIL = true;
+      return null;
+    }
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const canvas = renderer.domElement;
+    canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;";
+    stage.appendChild(canvas);
+    const camera = new THREE.PerspectiveCamera(62, 1, 0.2, 800);
+    T = { renderer, camera, canvas, scene: null, w: 0, h: 0 };
+    return T;
+  } catch (e) {
+    THREE_FAIL = true;   // 이후 threeSupported() = false → 기울임 뷰로 폴백
+    return null;
+  }
+}
+
+function floorTexture(plan) {
+  const key = plan.file || "synthetic-g1f";
+  if (TEX_CACHE[key]) return TEX_CACHE[key];
+  let tex;
+  if (plan.file) {
+    tex = new THREE.TextureLoader().load(`floorplans/${plan.file}`, () => threeRender());
+  } else {
+    tex = new THREE.CanvasTexture(g1fCanvas(plan));
+  }
+  tex.anisotropy = 4;
+  TEX_CACHE[key] = tex;
+  return tex;
+}
+
+// 약식 1층 평면도를 캔버스로 그려 3D 바닥 텍스처로 사용
+function g1fCanvas(plan) {
+  const c = document.createElement("canvas");
+  c.width = plan.w * 2; c.height = plan.h * 2;   // 2배 해상도(선명도)
+  const g = c.getContext("2d");
+  g.scale(2, 2);
+  g.fillStyle = "#fdfcf9"; g.fillRect(0, 0, plan.w, plan.h);
+  g.fillStyle = "#ffffff"; g.strokeStyle = "#cfd8cf"; g.lineWidth = 3;
+  roundRectPath(g, 40, 52, 720, 256, 14); g.fill(); g.stroke();
+  const blocks = [
+    [70, 80, 230, 125, "#ddeef7", "수산부류", "#3f7693"],
+    [330, 80, 190, 125, "#f2ecd9", "건해부류", "#8a7a45"],
+    [550, 80, 190, 125, "#f9e4e0", "축산부류", "#a05b52"],
+  ];
+  g.textAlign = "center"; g.font = "700 26px sans-serif";
+  blocks.forEach(([x, y, w, h, fill, name, tc]) => {
+    g.fillStyle = fill; roundRectPath(g, x, y, w, h, 10); g.fill();
+    g.fillStyle = tc; g.fillText(name, x + w / 2, y + h / 2 + 9);
+  });
+  return c;
+}
+function roundRectPath(g, x, y, w, h, r) {
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+}
+
+// 장면 구성: 바닥 + 매대 블록 + 통로 경로 + 목적지/에스컬레이터 핀
+function sync3D() {
+  const stage = document.getElementById("mapStage");
+  if (!ensureThree(stage)) { updateMapMode(); return; }   // WebGL 실패 → 폴백 재진입
+  const plan = NAV3D && NAV3D.plan;
+  if (!plan) return;
+  const mpp = mppOf(plan);
+  const W = plan.w * mpp, H = plan.h * mpp;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xf2ecdc);
+  scene.fog = new THREE.Fog(0xf2ecdc, 25, 170);   // 먼 곳은 옅게(깊이감)
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xcfc7b0, 1.05));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.5);
+  sun.position.set(60, 90, 40);
+  scene.add(sun);
+
+  // 바닥(평면도 텍스처) — SVG 좌표 (x,y) → 3D (x, 0, y)
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, H),
+    new THREE.MeshLambertMaterial({ map: floorTexture(plan) })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(W / 2, 0, H / 2);
+  scene.add(floor);
+
+  // 은은한 바닥 격자(4m 간격) — 걸을 때 이동감이 느껴지도록
+  const grid = new THREE.GridHelper(Math.max(W, H), Math.round(Math.max(W, H) / 4), 0xded6c2, 0xe9e2d2);
+  grid.position.set(W / 2, 0.02, H / 2);
+  scene.add(grid);
+
+  // 매대 블록(입체)
+  (plan.blocks3d || []).forEach(([x, y, w, h, ht]) => {
+    const box = new THREE.Mesh(
+      new THREE.BoxGeometry(w * mpp, ht, h * mpp),
+      new THREE.MeshLambertMaterial({ color: 0xd9cba0 })
+    );
+    box.position.set((x + w / 2) * mpp, ht / 2, (y + h / 2) * mpp);
+    scene.add(box);
+  });
+
+  // 경로: 통로를 따라가는 주황 튜브
+  if (NAV3D.routePts && NAV3D.routePts.length >= 2) {
+    const v = NAV3D.routePts.map(([x, y]) => new THREE.Vector3(x * mpp, 0.12, y * mpp));
+    const curve = new THREE.CatmullRomCurve3(v, false, "catmullrom", 0.05);
+    scene.add(new THREE.Mesh(
+      new THREE.TubeGeometry(curve, 80, 0.45, 8, false),
+      new THREE.MeshLambertMaterial({ color: 0xe8731a })
+    ));
+  }
+
+  // 목적지·에스컬레이터 핀
+  if (NAV3D.dest) scene.add(pin3D(NAV3D.dest, 0xe8731a, NAV3D.destLabel, mpp));
+  if (NAV3D.esc) scene.add(pin3D(NAV3D.esc, 0x7b5cc4, "에스컬레이터", mpp));
+
+  T.scene = scene;
+  update3DCamera();
+}
+
+// 핀: 기둥 + 구 + 이름 라벨(항상 카메라를 향하는 스프라이트)
+function pin3D(pt, color, label, mpp) {
+  const gp = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color });
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.4, 8), mat);
+  pole.position.y = 1.7;
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.65, 16, 12), mat);
+  ball.position.y = 3.6;
+  gp.add(pole, ball);
+  if (label) {
+    const c = document.createElement("canvas");
+    c.width = 512; c.height = 120;
+    const g = c.getContext("2d");
+    g.fillStyle = "#" + color.toString(16).padStart(6, "0");
+    roundRectPath(g, 6, 6, 500, 108, 26); g.fill();
+    g.fillStyle = "#fff"; g.font = "700 54px sans-serif";
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(label.length > 12 ? label.slice(0, 12) + "…" : label, 256, 62);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(c), depthTest: false, fog: false,
+    }));
+    sp.scale.set(11, 2.6, 1);
+    sp.position.y = 5.4;
+    gp.add(sp);
+  }
+  gp.position.set(pt.x * mpp, 0, pt.y * mpp);
+  return gp;
+}
+
+// 카메라: 현재위치 눈높이(1.6m)에서 바라보는 방향(activeHeading)으로
+function update3DCamera() {
+  if (!T || !T.scene) return;
+  const mpp = mppOf(NAV3D && NAV3D.plan);
+  const A = (activeHeading() * Math.PI) / 180;
+  const cx = currentLoc.x * mpp, cz = currentLoc.y * mpp;
+  T.camera.position.set(cx, 1.7, cz);
+  T.camera.lookAt(cx + Math.sin(A) * 12, 1.15, cz - Math.cos(A) * 12);
+  threeRender();
+}
+
+function threeRender() {
+  if (!T || !T.scene) return;
+  const stage = document.getElementById("mapStage");
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) { requestAnimationFrame(threeRender); return; }   // 숨김 상태면 다음 프레임 재시도
+  if (T.w !== w || T.h !== h) {
+    T.w = w; T.h = h;
+    T.renderer.setSize(w, h, false);
+    T.camera.aspect = w / h;
+    T.camera.updateProjectionMatrix();
+  }
+  T.renderer.render(T.scene, T.camera);
 }
 
 // 1인칭 배치 계산: 현재위치(px,py)를 기준점으로 회전·확대하고
@@ -667,7 +882,10 @@ function applyHeading() {
   const cone = document.getElementById("headCone");
   if (cone) cone.setAttribute("transform", `rotate(${H} ${currentLoc.x} ${currentLoc.y})`);
 
-  // 1인칭 모드: 나침반 변화에 맞춰 지도 회전 갱신 + 마커 라벨 정립(글자 역회전)
+  // 진짜 3D(Three.js): 나침반 변화 → 카메라 방향 갱신
+  if (threeActive()) { update3DCamera(); return; }
+
+  // 폴백(CSS 기울임) 모드: 지도 회전 갱신 + 마커 라벨 정립(글자 역회전)
   const stage3d = document.getElementById("mapStage").classList.contains("mode-3d");
   if (stage3d) layout3D();
   document.querySelectorAll("#mapSvg .lbl").forEach((el) => {
@@ -756,11 +974,10 @@ function projectOnCorridor(p, poly) {
   return best;
 }
 
-// 경로: from → (통로 진입) → 통로 중심선 따라 이동 → (통로 이탈) → to
-// corridor 가 없으면 기존 ㄱ자 꺾은선 폴백.
-function routeVia(from, to, plan, k) {
+// 경로 좌표 계산: from → (통로 진입) → 통로 중심선 따라 이동 → (통로 이탈) → to
+// corridor 가 없으면 ㄱ자 꺾은선 폴백. SVG(2D)와 Three.js(3D)가 공용으로 쓴다.
+function computeRoutePts(from, to, plan) {
   const corridor = plan && plan.corridor;
-  let pts;
   if (corridor && corridor.length >= 2) {
     const pa = projectOnCorridor(from, corridor);
     const pb = projectOnCorridor(to, corridor);
@@ -770,10 +987,14 @@ function routeVia(from, to, plan, k) {
     } else {
       for (let i = pa.seg; i > pb.seg; i--) mid.push(corridor[i]);
     }
-    pts = [[from.x, from.y], [pa.x, pa.y], ...mid, [pb.x, pb.y], [to.x, to.y]];
-  } else {
-    pts = [[from.x, from.y], [from.x, to.y], [to.x, to.y]];   // ㄱ자 폴백
+    return [[from.x, from.y], [pa.x, pa.y], ...mid, [pb.x, pb.y], [to.x, to.y]];
   }
+  return [[from.x, from.y], [from.x, to.y], [to.x, to.y]];   // ㄱ자 폴백
+}
+
+// 경로 SVG (2D 지도용)
+function routeVia(from, to, plan, k) {
+  const pts = computeRoutePts(from, to, plan);
   const d = "M " + pts.map(([x, y]) => `${Math.round(x)} ${Math.round(y)}`).join(" L ");
   const w = Math.max(5, 11 * k);
   // 차량 내비식 도로 표현: 흰 외곽선 → 주황 도로 → 흐르는 밝은 대시(진행감)
