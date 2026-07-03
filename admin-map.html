@@ -31,6 +31,7 @@
     ul.zone-list li:hover { background: #eef5ee; }
     ul.zone-list li.selected { background: #1e7a3c; color: #fff; }
     ul.zone-list li.unset .badge { background: #e8731a; }
+    ul.zone-list li.tmp .badge { background: #9aa0a6; }
     ul.zone-list li.done .badge { background: #1e7a3c; }
     .zone-name { font-size: .95rem; }
     .zone-cnt { font-size: .75rem; color: #888; }
@@ -95,6 +96,7 @@
     let PLANS = [];         // 평면도 인덱스(floorplans/index.json)
     let selectedKey = null; // 선택된 구역 key
     let bgHref = null;
+    let curPlan = null;     // 선택된 평면도 항목(index.json) — 좌표계(w/h) 결정
 
     const svg = document.getElementById("mapSvg");
 
@@ -134,10 +136,12 @@
       const file = `${d}_${floorCode(z.floor)}_all.png`;
       return PLANS.some((p) => p.file === file) ? file : "";
     }
-    // 배경 평면도 설정
+    // 배경 평면도 설정 — 평면도 선택 시 좌표계를 그 이미지의 픽셀좌표로 전환
+    // (앱 지도와 동일한 좌표계. index.json 의 w/h 사용, 커스텀 업로드는 1000x1000 유지)
     function setPlan(file) {
       document.getElementById("planSelect").value = file || "";
       bgHref = file ? `floorplans/${file}` : null;
+      curPlan = file ? PLANS.find((p) => p.file === file) || null : null;
       renderMap();
     }
 
@@ -148,21 +152,23 @@
       ul.innerHTML = "";
       ZONES.forEach((z) => {
         const li = document.createElement("li");
-        const set = hasXY(z);
-        li.className = (z.key === selectedKey ? "selected " : "") + (set ? "done" : "unset");
+        // 3단계 상태: 정합됨(평면도 픽셀좌표) / 임시값(자동배치) / 미설정
+        const state = z.mapped ? "done" : hasXY(z) ? "tmp" : "unset";
+        li.className = (z.key === selectedKey ? "selected " : "") + state;
         li.innerHTML = `<span><span class="zone-name">${z.name}</span>
                           <span class="zone-cnt">· ${z.count}개 매장</span></span>
-                        <span class="badge">${set ? "설정됨" : "미설정"}</span>`;
+                        <span class="badge">${z.mapped ? "정합됨" : hasXY(z) ? "임시값" : "미설정"}</span>`;
         li.onclick = () => {
           selectedKey = z.key;
           const rec = recommendPlan(z);   // 이 구역에 맞는 평면도 자동 추천
           if (rec) setPlan(rec);
+          else if (curPlan) setPlan(null);   // 평면도 없는 구역: 픽셀좌표계 잔류 방지(격자 1000x1000 복귀)
           renderList(); renderMap(); updateStatus();
         };
         ul.appendChild(li);
       });
-      const done = ZONES.filter(hasXY).length;
-      document.getElementById("counter").textContent = `(${done}/${ZONES.length} 완료)`;
+      const done = ZONES.filter((z) => z.mapped).length;
+      document.getElementById("counter").textContent = `(정합 ${done} / 전체 ${ZONES.length})`;
     }
 
     function updateStatus() {
@@ -173,24 +179,34 @@
     }
 
     function renderMap() {
+      const W = curPlan ? curPlan.w : 1000;
+      const H = curPlan ? curPlan.h : 1000;
+      const k = W / 1000;   // 점·글자 크기 스케일 (앱과 동일한 방식)
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
       let parts = "";
       if (bgHref) {
-        parts += `<image href="${bgHref}" x="0" y="0" width="1000" height="1000" preserveAspectRatio="xMidYMid meet"/>`;
+        parts += `<image href="${bgHref}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet"/>`;
       } else {
-        parts += `<rect x="0" y="0" width="1000" height="1000" fill="#fbfcfb"/>`;
-        for (let i = 100; i < 1000; i += 100) {
-          parts += `<line x1="${i}" y1="0" x2="${i}" y2="1000" stroke="#eef" stroke-width="1"/>`;
-          parts += `<line x1="0" y1="${i}" x2="1000" y2="${i}" stroke="#eef" stroke-width="1"/>`;
+        parts += `<rect x="0" y="0" width="${W}" height="${H}" fill="#fbfcfb"/>`;
+        for (let i = 100; i < W; i += 100) {
+          parts += `<line x1="${i}" y1="0" x2="${i}" y2="${H}" stroke="#eef" stroke-width="1"/>`;
+        }
+        for (let i = 100; i < H; i += 100) {
+          parts += `<line x1="0" y1="${i}" x2="${W}" y2="${i}" stroke="#eef" stroke-width="1"/>`;
         }
       }
-      // 좌표가 찍힌 구역 점 표시
+      // 좌표가 찍힌 구역 점 표시 — 현재 좌표계에 정합된 구역만
+      // (공식 평면도 선택 중엔 그 평면도에 정합된 구역만, 격자 모드에선 평면도 없는 구역만.
+      //  임시 자동배치 좌표는 평면도 위에 그리면 오해를 부르므로 표시하지 않는다)
       ZONES.forEach((z) => {
         if (!hasXY(z)) return;
+        const rec = recommendPlan(z);
+        if (curPlan ? (rec !== curPlan.file || !z.mapped) : rec) return;
         const sel = z.key === selectedKey;
         const color = sel ? "#e8731a" : "#1e7a3c";
-        const r = sel ? 16 : 11;
-        parts += `<circle cx="${z.x}" cy="${z.y}" r="${r}" fill="${color}" stroke="#fff" stroke-width="3"/>`;
-        parts += `<text x="${z.x}" y="${z.y - r - 4}" font-size="18" text-anchor="middle" fill="${color}" font-weight="700">${z.name}</text>`;
+        const r = Math.max(7, (sel ? 16 : 11) * k);
+        parts += `<circle cx="${z.x}" cy="${z.y}" r="${r}" fill="${color}" stroke="#fff" stroke-width="${Math.max(2, 3 * k)}"/>`;
+        parts += `<text x="${z.x}" y="${z.y - r - 4}" font-size="${Math.max(11, 18 * k)}" text-anchor="middle" fill="${color}" font-weight="700">${z.name}</text>`;
       });
       svg.innerHTML = parts;
     }
@@ -204,6 +220,8 @@
       const p = pt.matrixTransform(svg.getScreenCTM().inverse());
       z.x = Math.round(p.x);
       z.y = Math.round(p.y);
+      // 공식 평면도 위에서 찍은 좌표만 '정합됨'으로 기록 (격자/커스텀 이미지는 임시값)
+      if (curPlan) z.mapped = true; else delete z.mapped;
       renderList();
       renderMap();
     });
@@ -219,6 +237,7 @@
       if (!file) return;
       document.getElementById("planSelect").value = "";
       bgHref = URL.createObjectURL(file);
+      curPlan = null;   // 커스텀 이미지는 1000x1000 좌표계
       renderMap();
     });
 

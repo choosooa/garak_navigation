@@ -1,22 +1,50 @@
 {
-  "_comment": "QR코드 위치 데이터 (더미). 각 QR코드가 부착된 고정 지점입니다. 건물(관)·층별로 구분해 저장합니다. 여기에 실제 가락몰 QR 부착 위치를 채우세요. URL의 ?loc=<locId> 값과 일치시켜야 합니다.",
+  "_comment": "QR코드 위치 데이터. 각 QR이 부착된 고정 지점. building은 stores.json과 동일 표기, x/y는 해당 층 평면도 PNG의 픽셀좌표.",
   "_schema": {
-    "locId": "위치 ID (QR URL 파라미터 값). 'b1-f1-front' 처럼 건물-층-지점 규칙 권장",
+    "locId": "위치 ID (QR URL 파라미터 값). '동-층-지점' 규칙",
     "name": "위치 표시 이름",
     "building": "관/판매동 (stores.json 의 building 과 일치)",
-    "floor": "층 번호(정수)",
-    "x": "지도 X좌표(0~1000)",
-    "y": "지도 Y좌표(0~1000)",
-    "heading": "QR을 정면으로 봤을 때 사용자가 향하는 방위각(0~360, 북=0, 시계방향: 동90·남180·서270). 시연용 더미값이며 실제 부착 후 현장 실측으로 교체"
+    "floor": "층 번호(정수, 지하는 음수)",
+    "x": "평면도 픽셀 X좌표",
+    "y": "평면도 픽셀 Y좌표",
+    "heading": "QR을 정면으로 봤을 때 사용자가 향하는 방위각(0~360, 화면 위=0). 시연용 추정값"
   },
   "locations": [
-    { "locId": "b1-f1-front",  "name": "정문 입구",        "building": "가락몰 1관", "floor": 1, "x": 500, "y": 40,  "heading": 180 },
-    { "locId": "b1-f1-center", "name": "중앙 통로",        "building": "가락몰 1관", "floor": 1, "x": 300, "y": 300, "heading": 90 },
-    { "locId": "b1-f2-esc",    "name": "에스컬레이터 앞",   "building": "가락몰 1관", "floor": 2, "x": 500, "y": 300, "heading": 0 },
-    { "locId": "b2-f1-east",   "name": "동측 출입구",      "building": "가락몰 2관", "floor": 1, "x": 960, "y": 400, "heading": 270 },
-    { "locId": "b2-f1-center", "name": "수산동 중앙",      "building": "가락몰 2관", "floor": 1, "x": 300, "y": 700, "heading": 0 },
-    { "locId": "b2-f2-esc",    "name": "회센터 입구",      "building": "가락몰 2관", "floor": 2, "x": 720, "y": 600, "heading": 315 },
-    { "locId": "b3-f1-west",   "name": "서측 출입구",      "building": "가락몰 3관", "floor": 1, "x": 40,  "y": 400, "heading": 90 },
-    { "locId": "b3-f1-center", "name": "특산품동 중앙",    "building": "가락몰 3관", "floor": 1, "x": 520, "y": 560, "heading": 0 }
+    {
+      "locId": "g-b1-west",
+      "name": "서측 입구",
+      "building": "가락몰 판매동 청과부류",
+      "floor": -1,
+      "x": 78,
+      "y": 228,
+      "heading": 90
+    },
+    {
+      "locId": "g-b1-esc",
+      "name": "중앙 에스컬레이터 앞",
+      "building": "가락몰 판매동 청과부류",
+      "floor": -1,
+      "x": 240,
+      "y": 135,
+      "heading": 180
+    },
+    {
+      "locId": "g-b1-east",
+      "name": "동측 입구",
+      "building": "가락몰 판매동 청과부류",
+      "floor": -1,
+      "x": 745,
+      "y": 115,
+      "heading": 270
+    },
+    {
+      "locId": "g-3f-esc",
+      "name": "식당가 에스컬레이터 앞",
+      "building": "가락몰 판매동 관련상가",
+      "floor": 3,
+      "x": 570,
+      "y": 148,
+      "heading": 0
+    }
   ]
 }
