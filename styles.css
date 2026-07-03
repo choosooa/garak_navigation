@@ -48,7 +48,7 @@ body {
 .loc-chip::before { content: "📍 "; }
 
 main { flex: 1; padding: 12px 14px 2px; }
-.step-view { display: flex; flex-direction: column; gap: 10px; }
+.step-view { display: flex; flex-direction: column; gap: 8px; }
 
 /* ── 마스코트 말풍선 ───────────────────── */
 .mascot-say { display: flex; align-items: flex-end; gap: 10px; }
@@ -170,7 +170,7 @@ main { flex: 1; padding: 12px 14px 2px; }
   border: 2px solid var(--line);
   background: #fff;
   border-radius: 16px;
-  padding: 12px 8px;
+  padding: 10px 8px;
   font-size: 1rem;
   font-weight: 800;
   color: #55605a;
@@ -192,8 +192,7 @@ main { flex: 1; padding: 12px 14px 2px; }
 }
 .nav-dest { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .nav-dest-label { font-size: 0.8rem; font-weight: 700; opacity: 0.8; }
-.nav-dest strong { font-size: 1.15rem; line-height: 1.25; }
-.nav-dest-meta { font-size: 0.82rem; opacity: 0.9; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-dest strong { font-size: 1.3rem; line-height: 1.25; }
 .tts-btn {
   flex: none;
   width: 44px; height: 44px;
@@ -242,14 +241,14 @@ main { flex: 1; padding: 12px 14px 2px; }
 /* 1인칭 모드: 고정 높이 뷰포트 + 원근 기울임(차량 내비 시점).
    지도 자체는 app.js 가 현재위치 기준 회전·확대·이동(transform)을 계산해 적용 */
 .map-stage.mode-3d {
-  height: 260px;
-  height: clamp(180px, 28dvh, 320px);
-  perspective: 620px;
-  background: linear-gradient(#e9e2d1 0%, #f5f0e3 35%, #fdfcf9 100%);  /* 위쪽=먼 곳 */
+  height: 300px;
+  height: clamp(240px, 39dvh, 420px);
+  perspective: 560px;
+  background: linear-gradient(#d8cfb8 0%, #efe8d6 38%, #fdfcf9 100%);  /* 위쪽=먼 곳 */
 }
 .map-stage.mode-3d .fp-tilt {
   position: absolute; inset: 0;
-  transform: rotateX(57deg);
+  transform: rotateX(60deg);
 }
 .map-stage.mode-3d #mapSvg {
   position: absolute;
@@ -288,7 +287,7 @@ main { flex: 1; padding: 12px 14px 2px; }
   background: var(--green);
   color: #fff;
   border-radius: 14px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   font-size: 1.1rem;
   font-weight: 800;
 }

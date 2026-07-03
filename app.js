@@ -282,10 +282,8 @@ function selectStore(store) {
   const xy = storeXY(store);
   const sameView = viewOf(store.building, store.floor) === viewOf(currentLoc.building, currentLoc.floor);
 
-  // 목적지 배너
+  // 목적지 배너 (세부 주소는 표시하지 않음 — 지도가 위치를 보여준다)
   document.getElementById("navDestName").textContent = store.name;
-  document.getElementById("navDestMeta").textContent =
-    `${store.building} · ${floorLabel(store.floor)} ${store.zone}`;
 
   // 지도: 새 안내는 항상 주행 시점부터. 층간이면 현재 층부터(에스컬레이터까지 1단계 안내)
   NAV_MODE = "3d";
@@ -547,7 +545,7 @@ function layout3D() {
   const f = vw / vbW;                    // CSS px / SVG 단위 (지도 폭 = 뷰포트 폭 기준)
   const px = currentLoc.x * f;
   const py = currentLoc.y * f;
-  const Z = plan ? 2.7 : 1.9;            // 확대 배율 (주변 매대가 크게 보이는 수준)
+  const Z = plan ? 3.1 : 2.1;            // 확대 배율 (주변 매대가 크게 보이는 수준)
   svg.style.width = vw + "px";
   svg.style.position = "absolute";
   svg.style.left = (vw / 2 - px) + "px";
@@ -612,13 +610,13 @@ function applyHeading() {
 
 // 헤딩 콘: 현재위치 마커 아래에 깔리는 부채꼴(사용자가 보는 방향).
 function headingCone(x, y, k) {
-  const r = 90 * k;
-  const a = (25 * Math.PI) / 180;   // 반각 25°
+  const r = 130 * k;
+  const a = (26 * Math.PI) / 180;   // 반각 26°
   const x1 = x - r * Math.sin(a), y1 = y - r * Math.cos(a);
   const x2 = x + r * Math.sin(a), y2 = y - r * Math.cos(a);
   return `<g id="headCone">
     <path d="M ${x} ${y} L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} Z"
-          fill="#1e7a3c" opacity="0.22"/>
+          fill="#1e7a3c" opacity="0.26"/>
   </g>`;
 }
 
@@ -710,11 +708,17 @@ function routeVia(from, to, plan, k) {
     pts = [[from.x, from.y], [from.x, to.y], [to.x, to.y]];   // ㄱ자 폴백
   }
   const d = "M " + pts.map(([x, y]) => `${Math.round(x)} ${Math.round(y)}`).join(" L ");
-  const w = Math.max(4, 10 * k);
-  return `<path d="${d}" fill="none" stroke="#e8731a" stroke-width="${w}"
-            stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="${22 * k} ${16 * k}" opacity="0.95">
-            <animate attributeName="stroke-dashoffset" from="${38 * k}" to="0" dur="0.8s" repeatCount="indefinite"/>
-          </path>`;
+  const w = Math.max(5, 11 * k);
+  // 차량 내비식 도로 표현: 흰 외곽선 → 주황 도로 → 흐르는 밝은 대시(진행감)
+  return `
+    <path d="${d}" fill="none" stroke="#ffffff" stroke-width="${w * 1.9}"
+          stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+    <path d="${d}" fill="none" stroke="#e8731a" stroke-width="${w * 1.25}"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="${d}" fill="none" stroke="#ffd9b0" stroke-width="${w * 0.45}"
+          stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="${16 * k} ${22 * k}">
+      <animate attributeName="stroke-dashoffset" from="${38 * k}" to="0" dur="0.7s" repeatCount="indefinite"/>
+    </path>`;
 }
 
 // 마커: 원 + 아이콘 + 라벨
