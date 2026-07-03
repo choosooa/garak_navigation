@@ -112,7 +112,8 @@
       try {
         PLANS = (await (await fetch("floorplans/index.json")).json()).plans || [];
         const sel = document.getElementById("planSelect");
-        PLANS.forEach((p) => sel.add(new Option(`${p.label} (${p.file})`, p.file)));
+        // synthetic(자체 제작 약식 평면도) 항목은 이미지 파일이 없어 배경으로 못 씀 → 목록 제외
+        PLANS.filter((p) => p.file).forEach((p) => sel.add(new Option(`${p.label} (${p.file})`, p.file)));
       } catch (e) { /* 평면도 없으면 격자 배경으로 동작 */ }
       renderList();
       renderMap();

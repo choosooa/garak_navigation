@@ -1,16 +1,23 @@
 // 가락몰 길찾기 핵심 로직 / 생성일: 2026-06-25
 // 백엔드 없이 순수 프론트엔드. stores.json / locations.json / zones.json / floorplans/index.json 을 불러와 동작합니다.
+//
+// 화면 흐름(3단계):
+//   ① 품목 입력(음성·버튼) → ② 후보 가게 목록에서 사용자가 직접 선택 → ③ 네비게이션(지도+방향+거리)
+//   ※ 최근접 매장을 자동 선정하지 않는 이유: 특정 매장이 수요를 독점하지 않도록 선택권을 방문객에게 둔다.
+//
 // 지도는 공식 층별 평면도 PNG(floorplans/)를 SVG 배경으로 깔고, 좌표는 해당 평면도의 픽셀좌표를 씁니다.
 // 평면도가 없는 층은 약식 격자 안내도(0~1000 좌표계)로 폴백합니다.
 
 // ── 전역 상태 ──────────────────────────────────────────────
 let STORES = [];        // 매장 목록
 let LOCATIONS = [];     // QR 위치 목록
-let ZONE_BY_KEY = {};   // 구역 대표좌표 맵: "building|floor" → {x,y}
+let ZONE_BY_KEY = {};   // 구역 대표좌표 맵: "building|floor" → {x,y,mapped}
 let PLANS = [];         // 평면도 인덱스 (floorplans/index.json)
 let PLAN_BY_KEY = {};   // "동코드|층코드" → plan 항목 (예: "G|B1")
 let currentLoc = null;  // 현재 위치(QR) 객체
-let destStore = null;   // 현재 안내 중인 목적지 매장
+let destStore = null;   // 안내 중인 목적지 매장 (3단계에서만 설정)
+let candidates = [];    // 2단계 후보 매장 목록 [{s, xy, r}]
+let lastQuery = "";     // 마지막 검색어(가게 선택 화면 문구용)
 let shownDong = null;   // 지도에 표시 중인 동코드(A~G)
 let shownFloor = 1;     // 지도에 표시 중인 층
 
@@ -19,6 +26,10 @@ let USER_HEADING = null;   // 실시간 나침반 방위(0~360) — 없으면 nu
 let COMPASS_ON = false;    // 나침반 리스너 부착 여부(중복 부착 방지)
 let rafPending = false;    // applyHeading rAF 예약 중복 방지
 
+let VOICE_GUIDE = true;    // 음성 안내(TTS) 켜짐 여부 — 고령 사용자 배려 기본 ON
+let NAV_MODE = "3d";       // 지도 표시 모드: "3d"(1인칭 주행 시점, 기본) | "2d"(전체 지도)
+
+const CANDIDATE_MAX = 8;   // 가게 선택 목록 최대 표시 수 (너무 길면 고령 사용자에게 부담)
 const DEBUG = new URLSearchParams(location.search).get("debug") === "1";
 
 // ── 건물명 → 평면도 매핑 (admin-map.html 과 동일 규칙) ─────
@@ -36,9 +47,16 @@ function dongOf(b) {
 function floorCode(f) { return f < 0 ? "B" + (-f) : f + "F"; }
 function floorLabel(f) { return f < 0 ? `지하${-f}층` : `${f}층`; }
 function planFor(dong, floor) { return PLAN_BY_KEY[`${dong}|${floorCode(floor)}`] || null; }
+function viewOf(building, floor) { return `${dongOf(building)}|${floor}`; }
 
 // 도착 판정 거리: 평면도 층은 픽셀좌표라 층 크기에 비례시킨다
 function arriveR(plan) { return plan ? Math.min(plan.w, plan.h) * 0.11 : 40; }
+
+// 픽셀 거리 → 대략적인 미터 (평면도 축척 mpp 가 있을 때만, 5m 단위 반올림)
+function approxMeters(px, plan) {
+  if (!plan || !plan.mpp) return null;
+  return Math.max(5, Math.round((px * plan.mpp) / 5) * 5);
+}
 
 // 매장의 지도 좌표를 구한다.
 // 1순위: 매장 자체 x,y(정밀)  2순위: 자기 구역(building+층)의 대표좌표  없으면 null
@@ -58,17 +76,50 @@ function storeMapped(s) {
   return !!(z && z.mapped);
 }
 
-// 카테고리 버튼 정의: { label(화면표시), emoji, terms(검색에 쓸 동의어들), fish(신선이 안내 여부) }
+// "가락몰 판매동 청과부류" → "판매동" 같이 화면용 짧은 건물명
+function shortBuilding(b) {
+  return b.replace(/^가락몰\s*/, "").split(" ")[0] || b;
+}
+
+// 카테고리 버튼 정의: { label(화면표시), emoji, terms(검색에 쓸 동의어들) }
 // 음성으로 "과일/마늘/건어물"을 말해도 매칭되도록 terms 에 동의어를 넣습니다.
 const CATEGORIES = [
-  { label: "청과·과일",   emoji: "🍎", terms: ["청과", "과일"] },
-  { label: "채소·나물",   emoji: "🥬", terms: ["채소", "마늘", "나물"] },
-  { label: "건어물·특산품", emoji: "🦑", terms: ["건어물", "팔도특산품", "특산품"], fish: true },
-  { label: "수산·생선",   emoji: "🐟", terms: ["수산", "생선", "회"], fish: true },
-  { label: "축산·정육",   emoji: "🥩", terms: ["축산", "정육", "고기", "한우"] },
+  { label: "청과·과일",   emoji: "🍎", terms: ["청과", "과일", "사과", "배", "귤", "포도", "딸기", "수박", "참외", "복숭아", "바나나"] },
+  { label: "채소·나물",   emoji: "🥬", terms: ["채소", "마늘", "나물", "양파", "대파", "배추", "무", "상추", "고추", "버섯", "감자", "고구마"] },
+  { label: "건어물·특산품", emoji: "🦑", terms: ["건어물", "팔도특산품", "특산품", "멸치", "김", "미역", "다시마", "견과"] },
+  { label: "수산·생선",   emoji: "🐟", terms: ["수산", "생선", "회", "고등어", "갈치", "오징어", "새우", "조개", "게", "낙지"] },
+  { label: "축산·정육",   emoji: "🥩", terms: ["축산", "정육", "고기", "한우", "소고기", "돼지고기", "삼겹살", "닭", "닭고기", "오리"] },
 ];
 // 신선이(물고기)로 안내할 품목 키워드 — 그 외에는 무농이(무)
-const FISH_TERMS = ["수산", "생선", "회", "건어물", "팔도특산품", "특산품"];
+const FISH_TERMS = ["수산", "생선", "회", "건어물", "팔도특산품", "특산품", "젓갈"];
+
+function mascotFor(q) {
+  const fish = FISH_TERMS.some((t) => t.includes(q) || q.includes(t));
+  return fish
+    ? { img: "assets/sinseoni.png", name: "신선이" }
+    : { img: "assets/munongi.png", name: "무농이" };
+}
+
+// ── 음성 안내(TTS) — 고령 사용자 배려 ─────────────────────
+function speak(text) {
+  if (!VOICE_GUIDE || !window.speechSynthesis) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "ko-KR";
+    u.rate = 0.95;   // 살짝 천천히
+    speechSynthesis.speak(u);
+  } catch (_) { /* 미지원 환경은 조용히 무시 */ }
+}
+
+// ── 3단계 화면 전환 ────────────────────────────────────────
+const STEP_IDS = { input: "stepInput", select: "stepSelect", nav: "stepNav" };
+function goStep(step) {
+  Object.entries(STEP_IDS).forEach(([k, id]) => {
+    document.getElementById(id).classList.toggle("hidden", k !== step);
+  });
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
 
 // ── 초기화 ────────────────────────────────────────────────
 async function init() {
@@ -100,7 +151,7 @@ async function init() {
   resolveCurrentLocation();   // URL ?loc= 로 현재 위치 결정
   renderCategoryButtons();    // 카테고리 버튼 생성
   setupVoice();               // 음성 인식 준비
-  // 지도/층탭은 입력(음성·버튼) 후에 그린다 (초기 화면은 입력 UI만)
+  setupNavButtons();          // 2·3단계 버튼(뒤로/처음/음성안내) 연결
 }
 
 // URL 파라미터(?loc=g-b1-west)로 현재 위치를 찾습니다. 없으면 첫 위치로 폴백.
@@ -116,12 +167,7 @@ function resolveCurrentLocation() {
   }
 }
 
-// "가락몰 판매동 청과부류" → "판매동" 같이 화면용 짧은 건물명
-function shortBuilding(b) {
-  return b.replace(/^가락몰\s*/, "").split(" ")[0] || b;
-}
-
-// ── 입력: 카테고리 버튼 ────────────────────────────────────
+// ── 1단계: 입력 ────────────────────────────────────────────
 function renderCategoryButtons() {
   const box = document.getElementById("categoryButtons");
   box.innerHTML = "";
@@ -134,35 +180,35 @@ function renderCategoryButtons() {
   });
 }
 
-// ── 매칭 로직 ──────────────────────────────────────────────
-// 입력어 → 취급 매장 필터 → 현재 위치에서 가장 가까운 매장 선정
+// ── 2단계: 후보 검색 → 가게 선택 목록 ──────────────────────
+// 입력어 → 취급 매장 필터 → 정렬(같은 층 → 정합 좌표 → 거리) → 상위 CANDIDATE_MAX곳 표시
 function handleQuery(query) {
   const q = String(query).trim();
   if (!q) return;
 
-  // 1) 입력어를 취급하는 매장 필터
+  // 1) 동의어 확장: 말한 단어("고기","사과" 등)가 카테고리 사전(terms)에 있으면
+  //    그 카테고리의 대표어 전체로 검색한다 (매장 categories 는 "축산","청과" 같은 분류명이라서)
+  const catDef = CATEGORIES.find((c) => c.terms.some((t) => t === q || q.includes(t)));
+  const queries = catDef ? [...new Set([q, ...catDef.terms])] : [q];
+
+  // 2) 입력어(확장어 포함)를 취급하는 매장 필터
   const matches = STORES.filter((s) =>
-    s.categories.some((cat) => cat.includes(q) || q.includes(cat))
+    s.categories.some((cat) => queries.some((t) => cat.includes(t) || t.includes(cat)))
   );
-
   if (matches.length === 0) {
-    showResultMessage(`'${q}' 를 파는 매장을 찾지 못했어요. 다른 품목을 눌러보세요.`);
+    goStep("input");   // 검색은 1단계에서만 하므로 안내도 1단계에서 보여준다
+    showInputNotice(`'${q}' 를 파는 매장을 찾지 못했어요. 다른 품목을 눌러보세요.`);
     return;
   }
 
-  // 2) 지도 좌표(매장 정밀좌표 또는 구역 대표좌표)가 있는 매장만 길안내 후보로
-  const located = matches
-    .map((s) => ({ s, xy: storeXY(s) }))
-    .filter((o) => o.xy);
+  // 3) 지도 좌표가 있는 매장만 안내 후보로
+  const located = matches.map((s) => ({ s, xy: storeXY(s) })).filter((o) => o.xy);
   if (located.length === 0) {
-    showResultMessage(
-      `'${q}' 취급 매장을 ${matches.length}곳 찾았지만, 아직 지도 좌표가 입력되지 않았어요. ` +
-      `운영자 좌표 매핑 도구(admin-map.html)로 구역 위치를 지정하면 길안내가 표시됩니다.`
-    );
+    showInputNotice(`'${q}' 취급 매장을 ${matches.length}곳 찾았지만 아직 지도 좌표가 없어요.`);
     return;
   }
 
-  // 3) 매장 선정 우선순위: 같은 층 → 평면도에 정합된 좌표(정밀 안내 가능) → 직선거리
+  // 4) 정렬 우선순위: 같은 층 → 평면도에 정합된 좌표(정밀 안내 가능) → 직선거리
   //    (정합 안 된 구역의 좌표는 임의 배치값이라 층간 거리 비교가 무의미하기 때문)
   const curView = viewOf(currentLoc.building, currentLoc.floor);
   const rank = (o) => {
@@ -170,24 +216,136 @@ function handleQuery(query) {
     const guided = !!planFor(dongOf(o.s.building), o.s.floor) && storeMapped(o.s);
     return (sameView ? 0 : 2) + (guided ? 0 : 1);
   };
-  destStore = located.reduce((a, b) => {
-    const ra = rank(a), rb = rank(b);
-    if (ra !== rb) return ra < rb ? a : b;
-    return dist(currentLoc, a.xy) < dist(currentLoc, b.xy) ? a : b;
-  }).s;
+  located.forEach((o) => { o.r = rank(o); o.d = dist(currentLoc, o.xy); });
+  located.sort((a, b) => (a.r - b.r) || (a.d - b.d) || a.s.name.localeCompare(b.s.name, "ko"));
 
-  showResultCard(q, destStore);
-  // 입력이 성공하면 네비게이션(지도) 화면을 표시
-  document.querySelector(".map-section").classList.remove("hidden");
-  // 목적지가 현재 층과 다르면: 우선 현재 층을 보여줘 에스컬레이터까지 안내(2단 안내)
-  const sameView = viewOf(destStore.building, destStore.floor) === curView;
-  shownDong = dongOf(currentLoc.building);
-  shownFloor = sameView ? destStore.floor : currentLoc.floor;
-  renderFloorTabs();
-  renderMap();
+  lastQuery = q;
+  candidates = located.slice(0, CANDIDATE_MAX);
+  renderStoreList(matches.length);
+  goStep("select");
+  speak(`${q} 파는 가게 ${matches.length}곳을 찾았어요. 갈 가게를 골라주세요.`);
 }
 
-function viewOf(building, floor) { return `${dongOf(building)}|${floor}`; }
+// 입력 화면 안의 안내 문구(검색 실패 등)
+function showInputNotice(msg) {
+  const el = document.getElementById("voiceStatus");
+  el.textContent = msg;
+  speak(msg);
+}
+
+// 후보 카드 하나에 표시할 거리/층 안내 문구
+function candidateMeta(o) {
+  const sameView = viewOf(o.s.building, o.s.floor) === viewOf(currentLoc.building, currentLoc.floor);
+  if (sameView) {
+    const plan = planFor(dongOf(o.s.building), o.s.floor);
+    const m = approxMeters(o.d, plan);
+    return m ? `같은 층 · 약 ${m}m` : "같은 층";
+  }
+  const mapped = storeMapped(o.s) && planFor(dongOf(o.s.building), o.s.floor);
+  return mapped
+    ? `${floorLabel(o.s.floor)} · 에스컬레이터 이용`
+    : `${shortBuilding(o.s.building)} ${floorLabel(o.s.floor)} · 위치 대략`;
+}
+
+function renderStoreList(totalCount) {
+  const m = mascotFor(lastQuery);
+  document.getElementById("selectMascot").src = m.img;
+  document.getElementById("selectBubble").innerHTML =
+    `<b>'${lastQuery}'</b> 파는 가게예요.<br />가고 싶은 곳을 눌러주세요!`;
+  document.getElementById("selectHint").textContent =
+    totalCount > candidates.length
+      ? `가까운 순서로 ${candidates.length}곳을 보여드려요 (전체 ${totalCount}곳)`
+      : `가까운 순서로 보여드려요`;
+
+  const list = document.getElementById("storeList");
+  list.innerHTML = "";
+  candidates.forEach((o, i) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "store-card";
+    card.innerHTML = `
+      <span class="store-rank">${i + 1}</span>
+      <span class="store-info">
+        <strong>${o.s.name}</strong>
+        <span class="store-where">${candidateMeta(o)} · ${o.s.zone}</span>
+        <span class="store-tags">${o.s.categories.map((c) => `<em>${c}</em>`).join("")}</span>
+      </span>
+      <span class="store-go">안내<br />▶</span>`;
+    card.addEventListener("click", () => { enableCompass(); selectStore(o.s); });
+    list.appendChild(card);
+  });
+}
+
+// ── 3단계: 네비게이션 ─────────────────────────────────────
+function selectStore(store) {
+  destStore = store;
+  const xy = storeXY(store);
+  const sameView = viewOf(store.building, store.floor) === viewOf(currentLoc.building, currentLoc.floor);
+
+  // 목적지 배너
+  document.getElementById("navDestName").textContent = store.name;
+  document.getElementById("navDestMeta").textContent =
+    `${store.building} · ${floorLabel(store.floor)} ${store.zone}`;
+
+  // 지도: 새 안내는 항상 주행 시점부터. 층간이면 현재 층부터(에스컬레이터까지 1단계 안내)
+  NAV_MODE = "3d";
+  shownDong = dongOf(currentLoc.building);
+  shownFloor = sameView ? store.floor : currentLoc.floor;
+  renderFloorTabs();
+  goStep("nav");    // 먼저 화면을 보이게 한 뒤 렌더 (숨김 상태에선 3D 배치 크기가 0으로 계산됨)
+  renderMap();
+
+  // 음성 안내 (네비게이션 시작)
+  const plan = planFor(dongOf(store.building), store.floor);
+  if (sameView && xy) {
+    const meters = approxMeters(dist(currentLoc, xy), plan);
+    speak(meters
+      ? `${store.name}까지 약 ${meters}미터입니다. 화살표 방향으로 이동하세요.`
+      : `${store.name}으로 안내를 시작합니다. 화살표 방향으로 이동하세요.`);
+  } else {
+    speak(`${store.name}은 ${floorLabel(store.floor)}에 있습니다. 먼저 에스컬레이터로 이동하세요.`);
+  }
+}
+
+function setupNavButtons() {
+  document.getElementById("backToInput").addEventListener("click", () => {
+    document.getElementById("voiceStatus").textContent = "";
+    goStep("input");
+  });
+  document.getElementById("backToSelect").addEventListener("click", () => {
+    destStore = null;
+    goStep("select");
+  });
+  document.getElementById("restartBtn").addEventListener("click", () => {
+    destStore = null;
+    candidates = [];
+    document.getElementById("voiceStatus").textContent = "";
+    goStep("input");
+  });
+  const ttsBtn = document.getElementById("ttsBtn");
+  ttsBtn.addEventListener("click", () => {
+    VOICE_GUIDE = !VOICE_GUIDE;
+    ttsBtn.textContent = VOICE_GUIDE ? "🔊" : "🔇";
+    ttsBtn.classList.toggle("off", !VOICE_GUIDE);
+    if (!VOICE_GUIDE && window.speechSynthesis) speechSynthesis.cancel();
+    if (VOICE_GUIDE) speak("음성 안내를 켰어요.");
+  });
+
+  // 주행 시점 / 전체 지도 토글
+  document.getElementById("mode3dBtn").addEventListener("click", () => {
+    NAV_MODE = "3d";
+    // 주행 시점은 항상 내 위치 기준 → 현재 위치 층으로 복귀
+    shownDong = dongOf(currentLoc.building);
+    shownFloor = currentLoc.floor;
+    renderFloorTabs();
+    renderMap();
+  });
+  document.getElementById("mode2dBtn").addEventListener("click", () => {
+    NAV_MODE = "2d";
+    renderMap();
+  });
+  window.addEventListener("resize", layout3D);
+}
 
 // 두 좌표 사이 직선거리(유클리드). 같은 층 가정의 단순 계산.
 function dist(a, b) {
@@ -260,55 +418,6 @@ function onOrientation(e) {
   }
 }
 
-// ── 결과 카드 ──────────────────────────────────────────────
-// 품목에 따라 마스코트가 바뀐다: 수산·건어물 계열=신선이, 그 외=무농이
-function mascotFor(q) {
-  const fish = FISH_TERMS.some((t) => t.includes(q) || q.includes(t));
-  return fish
-    ? { img: "assets/sinseoni.png", name: "신선이" }
-    : { img: "assets/munongi.png", name: "무농이" };
-}
-
-function showResultCard(query, store) {
-  const card = document.getElementById("resultCard");
-  const sameView = viewOf(store.building, store.floor) === viewOf(currentLoc.building, currentLoc.floor);
-  const xy = storeXY(store);
-  const plan = planFor(dongOf(store.building), store.floor);
-  const arrived = sameView && xy && dist(currentLoc, xy) < arriveR(plan);
-  const m = mascotFor(query);
-
-  const say = !sameView
-    ? `${shortBuilding(store.building)} ${floorLabel(store.floor)}에 있어요! 먼저 지도의 에스컬레이터로 가서 ${floorLabel(store.floor)}으로 이동해요~`
-    : arrived
-    ? `바로 이 구역이에요! 도착했어요 🎉 주변 매대를 둘러보세요.`
-    : `같은 ${floorLabel(store.floor)}이에요. 지도의 경로를 따라오세요!`;
-
-  card.innerHTML = `
-    <div class="mascot-say">
-      <img class="mascot" src="${m.img}" alt="${m.name}" />
-      <p class="bubble">${say}</p>
-    </div>
-    <h2>📍 ${store.name}</h2>
-    <p class="store-meta"><span class="label">위치</span> ${store.building} · ${floorLabel(store.floor)} ${store.zone}</p>
-    <div class="tags">${store.categories.map((c) => `<span class="tag">${c}</span>`).join("")}</div>
-    ${plan && storeMapped(store) ? "" : `<p class="zone-note">지도 위 위치는 대략적인 표시입니다. 현장 안내판을 함께 확인하세요.</p>`}
-  `;
-  card.classList.remove("hidden");
-}
-
-function showResultMessage(msg) {
-  const card = document.getElementById("resultCard");
-  card.innerHTML = `
-    <div class="mascot-say">
-      <img class="mascot" src="assets/munongi.png" alt="무농이" />
-      <p class="bubble">${msg}</p>
-    </div>`;
-  card.classList.remove("hidden");
-  destStore = null;
-  const mapSec = document.querySelector(".map-section");
-  if (!mapSec.classList.contains("hidden")) renderMap();
-}
-
 // ── 층 탭 ─────────────────────────────────────────────────
 // 현재 동(dong)의 평면도가 있는 층 + 현재위치/목적지 층만 탭으로 노출
 function renderFloorTabs() {
@@ -352,9 +461,11 @@ function renderMap() {
   const onFloorDest = destView === thisView;
 
   let inner = "";
-  // 배경: 공식 평면도 or 약식 격자
-  if (plan) {
+  // 배경: 공식 평면도 이미지 > 자체 제작 약식 평면도(synthetic) > 격자 폴백
+  if (plan && plan.file) {
     inner += `<image href="floorplans/${plan.file}" x="0" y="0" width="${vbW}" height="${vbH}"/>`;
+  } else if (plan && plan.synthetic) {
+    inner += drawSyntheticG1F();
   } else {
     inner += drawFloorPlanBackground(shownFloor);
   }
@@ -367,11 +478,11 @@ function renderMap() {
   } else if (destXY && onFloorCurrent && !onFloorDest && esc) {
     // 층간 1단계: 현재위치 → 에스컬레이터
     inner += routeVia(currentLoc, esc, plan, k);
-    inner += marker(esc.x, esc.y, "#7b5cc4", "에스컬레이터", "↑", k);
+    inner += marker(esc.x, esc.y, "#7b5cc4", "에스컬레이터", "🛗", k);
   } else if (destXY && !onFloorCurrent && onFloorDest && esc) {
     // 층간 2단계: 에스컬레이터 → 목적지
     inner += routeVia(esc, destXY, plan, k);
-    inner += marker(esc.x, esc.y, "#7b5cc4", "에스컬레이터", "↑", k);
+    inner += marker(esc.x, esc.y, "#7b5cc4", "에스컬레이터", "🛗", k);
   }
   if (onFloorCurrent) {
     inner += headingCone(currentLoc.x, currentLoc.y, k);
@@ -388,14 +499,64 @@ function renderMap() {
   const title = document.getElementById("mapTitle");
   if (title) {
     title.textContent = plan
-      ? `${plan.label} · 공식 안내도`
+      ? `${plan.label} · ${plan.synthetic ? "약식" : "공식"} 안내도`
       : `${shortBuilding(currentLoc.building)} ${floorLabel(shownFloor)} · 약식 안내도`;
   }
 
+  updateMapMode();  // 주행 시점(1인칭) / 전체 지도 배치 적용
   applyHeading();   // 헤딩 콘·HUD 화살표 갱신
 }
 
-// 재렌더 없이 방향 요소만 갱신: 헤딩 콘 회전 + HUD 화살표 방향.
+// ── 1인칭 주행 시점 (차량 내비 스타일) ─────────────────────
+// 원리: 지도를 (1) 사용자 진행 방향이 위로 오게 회전, (2) 현재위치를 뷰포트 하단
+// 중앙에 고정·확대, (3) CSS perspective+rotateX 로 기울여 앞쪽 경로가 멀리 보이게 한다.
+// 주행 시점은 현재위치가 있는 층에서만 의미가 있으므로, 다른 층을 보는 중엔 전체 지도로 표시.
+function is3DActive() {
+  const onFloor = viewOf(currentLoc.building, currentLoc.floor) === `${shownDong}|${shownFloor}`;
+  return NAV_MODE === "3d" && onFloor;
+}
+
+// 표시 모드 반영: 스테이지 클래스·토글 버튼·층탭 노출 → 3D면 배치 계산
+function updateMapMode() {
+  const stage = document.getElementById("mapStage");
+  const svg = document.getElementById("mapSvg");
+  const active = is3DActive();
+  stage.classList.toggle("mode-3d", active);
+  document.getElementById("mode3dBtn").classList.toggle("active", NAV_MODE === "3d");
+  document.getElementById("mode2dBtn").classList.toggle("active", NAV_MODE !== "3d");
+  // 층탭은 전체 지도에서만 (주행 시점은 항상 내 층 기준)
+  document.getElementById("floorTabs").classList.toggle("hidden", active);
+  if (!active) {
+    svg.style.cssText = "";   // 2D: 인라인 transform 제거 → CSS 기본(width 100%) 복귀
+    return;
+  }
+  layout3D();
+}
+
+// 1인칭 배치 계산: 현재위치(px,py)를 기준점으로 회전·확대하고
+// 그 점이 뷰포트 (가로 중앙, 세로 80%) 에 오도록 지도를 이동시킨다.
+function layout3D() {
+  const stage = document.getElementById("mapStage");
+  if (!stage.classList.contains("mode-3d")) return;
+  const svg = document.getElementById("mapSvg");
+  const plan = planFor(shownDong, shownFloor);
+  const vbW = plan ? plan.w : 1000;
+  const vw = stage.clientWidth;
+  const vh = stage.clientHeight || 340;
+  if (!vw) { requestAnimationFrame(layout3D); return; }   // 아직 숨김/레이아웃 전이면 다음 프레임에 재시도
+  const f = vw / vbW;                    // CSS px / SVG 단위 (지도 폭 = 뷰포트 폭 기준)
+  const px = currentLoc.x * f;
+  const py = currentLoc.y * f;
+  const Z = plan ? 2.7 : 1.9;            // 확대 배율 (주변 매대가 크게 보이는 수준)
+  svg.style.width = vw + "px";
+  svg.style.position = "absolute";
+  svg.style.left = (vw / 2 - px) + "px";
+  svg.style.top = (vh * 0.72 - py) + "px";
+  svg.style.transformOrigin = `${px}px ${py}px`;
+  svg.style.transform = `rotate(${-activeHeading()}deg) scale(${Z})`;
+}
+
+// 재렌더 없이 방향 요소만 갱신: 헤딩 콘 회전 + HUD 화살표 방향/거리.
 function applyHeading() {
   const H = activeHeading();
   const thisView = `${shownDong}|${shownFloor}`;
@@ -405,29 +566,48 @@ function applyHeading() {
   const cone = document.getElementById("headCone");
   if (cone) cone.setAttribute("transform", `rotate(${H} ${currentLoc.x} ${currentLoc.y})`);
 
-  // HUD 방향 배지: 같은 층에 목적지가 있고 도착 전일 때만
+  // 1인칭 모드: 나침반 변화에 맞춰 지도 회전 갱신 + 마커 라벨 정립(글자 역회전)
+  const stage3d = document.getElementById("mapStage").classList.contains("mode-3d");
+  if (stage3d) layout3D();
+  document.querySelectorAll("#mapSvg .lbl").forEach((el) => {
+    el.setAttribute("transform", stage3d ? `rotate(${H} ${el.dataset.x} ${el.dataset.y})` : "");
+  });
+
+  // HUD 방향 배지
   const hud = document.getElementById("hudBadge");
   if (!hud) return;
+  const arrowEl = hud.querySelector(".hud-arrow");
+  const textEl = hud.querySelector(".hud-text");
   const destXY = destStore ? storeXY(destStore) : null;
   const sameView = destStore &&
     viewOf(destStore.building, destStore.floor) === viewOf(currentLoc.building, currentLoc.floor);
   const plan = planFor(dongOf(currentLoc.building), currentLoc.floor);
 
-  if (destXY && sameView && onFloor && dist(currentLoc, destXY) >= arriveR(plan)) {
+  if (destXY && sameView && onFloor) {
+    const d = dist(currentLoc, destXY);
+    if (d < arriveR(plan)) {
+      // 도착
+      hud.classList.remove("hidden");
+      hud.classList.add("arrived");
+      arrowEl.style.transform = "";
+      arrowEl.textContent = "🎉";
+      textEl.textContent = "도착! 이 구역의 매대를 둘러보세요";
+      return;
+    }
     const rel = (bearingTo(currentLoc, destXY) - H + 360) % 360;
-    hud.classList.remove("hidden");
-    hud.querySelector(".hud-arrow").style.transform = `rotate(${rel}deg)`;
-    hud.querySelector(".hud-text").textContent = "화살표 방향으로 가세요";
+    const m = approxMeters(d, plan);
+    hud.classList.remove("hidden", "arrived");
+    arrowEl.textContent = "⬆";
+    arrowEl.style.transform = `rotate(${rel}deg)`;
+    textEl.textContent = m ? `화살표 방향 · 약 ${m}m` : "화살표 방향으로 가세요";
   } else if (destStore && !sameView) {
-    hud.classList.remove("hidden");
-    hud.querySelector(".hud-arrow").style.transform = "";
-    hud.querySelector(".hud-arrow").textContent = "🛗";
-    hud.querySelector(".hud-text").textContent = `에스컬레이터로 ${floorLabel(destStore.floor)} 이동`;
-    return;
+    hud.classList.remove("hidden", "arrived");
+    arrowEl.style.transform = "";
+    arrowEl.textContent = "🛗";
+    textEl.textContent = `에스컬레이터로 ${floorLabel(destStore.floor)} 이동`;
   } else {
     hud.classList.add("hidden");
   }
-  hud.querySelector(".hud-arrow").textContent = "⬆";
 }
 
 // 헤딩 콘: 현재위치 마커 아래에 깔리는 부채꼴(사용자가 보는 방향).
@@ -440,6 +620,34 @@ function headingCone(x, y, k) {
     <path d="M ${x} ${y} L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} Z"
           fill="#1e7a3c" opacity="0.22"/>
   </g>`;
+}
+
+// 판매동 1층 약식 평면도 (공식 평면도 미제공 층 — 직접 그린 배경, 좌표계 800x370)
+// 수산(좌)·건해(중)·축산(우) 3개 부류 구역 + 하단 통로 + 에스컬레이터 + 출입구.
+function drawSyntheticG1F() {
+  let s = "";
+  s += `<rect x="0" y="0" width="800" height="370" fill="#fdfcf9"/>`;
+  s += `<rect x="40" y="52" width="720" height="256" rx="14" fill="#ffffff" stroke="#cfd8cf" stroke-width="3"/>`;
+  // 구역 블록
+  const blocks = [
+    [70, 80, 230, 125, "#ddeef7", "#a9cbe0", "수산부류", "#3f7693"],
+    [330, 80, 190, 125, "#f2ecd9", "#dcd0a8", "건해부류", "#8a7a45"],
+    [550, 80, 190, 125, "#f9e4e0", "#e6bfb8", "축산부류", "#a05b52"],
+  ];
+  blocks.forEach(([x, y, w, h, fill, stroke, name, tc]) => {
+    s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    s += `<text x="${x + w / 2}" y="${y + h / 2 + 9}" font-size="26" fill="${tc}" text-anchor="middle" font-weight="700">${name}</text>`;
+  });
+  // 하단 통로
+  s += `<line x1="60" y1="250" x2="742" y2="236" stroke="#cdd6cd" stroke-width="12" stroke-dasharray="2 16" stroke-linecap="round"/>`;
+  // 에스컬레이터 (지하1층·3층과 같은 x≈240 위치)
+  s += `<rect x="222" y="200" width="36" height="36" rx="8" fill="#e8a33d"/>`;
+  s += `<text x="240" y="226" font-size="22" fill="#fff" text-anchor="middle" font-weight="700">↕</text>`;
+  s += `<text x="240" y="196" font-size="15" fill="#b07818" text-anchor="middle" font-weight="700">에스컬레이터</text>`;
+  // 출입구 표시
+  s += `<text x="92" y="288" font-size="16" fill="#9aa89a" font-weight="700">◀ 서측 입구</text>`;
+  s += `<text x="710" y="278" font-size="16" fill="#9aa89a" text-anchor="end" font-weight="700">동측 입구 ▶</text>`;
+  return s;
 }
 
 // 약식 평면도 배경(평면도 이미지가 없는 층 폴백): 외벽 + 통로 + 구역 블록
@@ -518,7 +726,7 @@ function marker(x, y, color, label, glyph, k) {
     <g>
       <circle cx="${x}" cy="${y}" r="${r}" fill="${color}" stroke="#fff" stroke-width="${Math.max(2, 5 * k)}"/>
       <text x="${x}" y="${y + fs * 0.36}" font-size="${fs}" fill="#fff" text-anchor="middle" font-weight="700">${glyph}</text>
-      <g class="lbl">
+      <g class="lbl" data-x="${x}" data-y="${y}">
         <rect x="${x - lw / 2}" y="${y + r + 4 * k}" width="${lw}" height="${fs * 1.7}" rx="${8 * k}" fill="${color}" opacity="0.95"/>
         <text x="${x}" y="${y + r + 4 * k + fs * 1.2}" font-size="${fs}" fill="#fff" text-anchor="middle" font-weight="700">${label}</text>
       </g>
@@ -550,12 +758,10 @@ function setupVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const secure = window.isSecureContext;   // https/localhost = true
   if (!SR || !secure) {
-    if (micLabel) micLabel.textContent = secure
-      ? "이 브라우저는 음성을 지원하지 않아요 — 아래 버튼 이용"
-      : "음성은 보안연결(https)에서만 돼요 — 아래 버튼 이용";
-    statusEl.textContent = "지금은 음성이 안 돼요. 아래 카테고리 버튼으로 찾아보세요.";
+    // 음성 미지원 환경(http 접속 등): 평소엔 안내문 없이 조용히 두고,
+    // 마이크를 눌렀을 때만 짧게 알려준다 (버튼 입력은 그대로 사용 가능)
     btn.addEventListener("click", () => {
-      statusEl.textContent = "이 환경에선 음성이 안 돼요. 아래 카테고리 버튼을 눌러주세요.";
+      statusEl.textContent = "지금은 음성이 안 돼요. 아래 버튼을 눌러주세요.";
     });
     return;
   }

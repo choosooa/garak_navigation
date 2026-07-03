@@ -45,6 +45,24 @@
       "x": 570,
       "y": 148,
       "heading": 0
+    },
+    {
+      "locId": "g-f1-west",
+      "name": "1층 서측 입구",
+      "building": "가락몰 판매동 수산부류",
+      "floor": 1,
+      "x": 65,
+      "y": 250,
+      "heading": 90
+    },
+    {
+      "locId": "g-f1-east",
+      "name": "1층 동측 입구",
+      "building": "가락몰 판매동 축산부류",
+      "floor": 1,
+      "x": 740,
+      "y": 236,
+      "heading": 270
     }
   ]
 }

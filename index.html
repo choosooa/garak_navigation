@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <!-- 가락몰 실내 길찾기 웹앱 (프로토타입) / 생성일: 2026-06-25 -->
+<!-- 3단계 흐름: ① 품목 입력 → ② 가게 선택 → ③ 네비게이션 -->
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
@@ -17,8 +18,8 @@
     </header>
 
     <main>
-      <!-- 1) 입력 영역 -->
-      <section class="input-section">
+      <!-- ═══ 1단계: 품목 입력 ═══ -->
+      <section id="stepInput" class="step-view">
         <!-- 무농이 말풍선 안내 -->
         <div class="mascot-say intro">
           <img class="mascot" src="assets/munongi.png" alt="친환경무농이" />
@@ -28,7 +29,6 @@
         <!-- 음성 입력: 화면 가운데 큰 원형 마이크 버튼 -->
         <div class="voice-wrap">
           <button id="voiceBtn" class="mic-btn" type="button" aria-label="음성으로 말하기">
-            <!-- 마이크 아이콘 (SVG) -->
             <svg viewBox="0 0 24 24" width="56" height="56" fill="none"
                  stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <rect x="9" y="2" width="6" height="12" rx="3" fill="#fff" stroke="none"/>
@@ -39,41 +39,67 @@
           </button>
           <p class="mic-label">눌러서 말하기</p>
         </div>
-        <!-- 음성 상태 메시지 (동적, 평소 비어있음) -->
         <p id="voiceStatus" class="voice-status"></p>
 
         <!-- 카테고리 터치 버튼 (음성 실패/소음 대비 항상 제공) -->
-        <div id="categoryButtons" class="category-buttons">
-          <!-- app.js 에서 동적 생성 -->
-        </div>
+        <div id="categoryButtons" class="category-buttons"></div>
       </section>
 
-      <!-- 2) 결과 카드 -->
-      <section id="resultCard" class="result-card hidden">
-        <!-- app.js 에서 채움 -->
+      <!-- ═══ 2단계: 가게 선택 ═══ -->
+      <section id="stepSelect" class="step-view hidden">
+        <div class="mascot-say">
+          <img id="selectMascot" class="mascot" src="assets/munongi.png" alt="안내 캐릭터" />
+          <p class="bubble" id="selectBubble">어느 가게로 안내할까요?</p>
+        </div>
+        <p class="select-hint" id="selectHint"></p>
+        <div id="storeList" class="store-list"><!-- app.js 에서 채움 --></div>
+        <button id="backToInput" class="big-back" type="button">← 다른 품목 찾기</button>
       </section>
 
-      <!-- 3) 지도 (공식 평면도 배경 SVG) — 입력(음성/버튼) 후에만 표시 -->
-      <section class="map-section hidden">
-        <div class="map-toolbar">
-          <span id="mapTitle" class="floor-label">평면도</span>
-          <div id="floorTabs" class="floor-tabs"><!-- 층 탭 동적 생성 --></div>
+      <!-- ═══ 3단계: 네비게이션 ═══ -->
+      <section id="stepNav" class="step-view hidden">
+        <!-- 목적지 배너 (네비게이션 상단) -->
+        <div class="nav-banner">
+          <div class="nav-dest">
+            <span class="nav-dest-label">목적지</span>
+            <strong id="navDestName">-</strong>
+            <span id="navDestMeta" class="nav-dest-meta">-</span>
+          </div>
+          <button id="ttsBtn" class="tts-btn" type="button" aria-label="음성 안내 켜기/끄기">🔊</button>
         </div>
-        <div class="map-wrap">
-          <svg id="mapSvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"
-               xmlns="http://www.w3.org/2000/svg" role="img" aria-label="가락몰 평면도">
-            <!-- 평면도/마커/경로는 app.js 에서 그립니다 -->
-          </svg>
+
+        <!-- 지도: 주행 시점(1인칭, 기본) / 전체 지도 토글 -->
+        <div class="map-card">
+          <div class="map-toolbar">
+            <span id="mapTitle" class="floor-label">평면도</span>
+            <div class="view-toggle">
+              <button id="mode3dBtn" type="button" class="active">🧭 주행 시점</button>
+              <button id="mode2dBtn" type="button">🗺️ 전체 지도</button>
+            </div>
+            <div id="floorTabs" class="floor-tabs"></div>
+          </div>
+          <div class="map-stage" id="mapStage">
+            <div class="fp-tilt" id="fpTilt">
+              <svg id="mapSvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"
+                   xmlns="http://www.w3.org/2000/svg" role="img" aria-label="가락몰 평면도"></svg>
+            </div>
+          </div>
+          <div class="map-legend">
+            <span><i class="dot cur"></i> 현재위치</span>
+            <span><i class="dot dest"></i> 목적지</span>
+            <span><i class="dot route"></i> 이동 경로</span>
+          </div>
         </div>
-        <div class="map-legend">
-          <span><i class="dot cur"></i> 현재위치</span>
-          <span><i class="dot dest"></i> 목적지</span>
-          <span><i class="dot route"></i> 이동 경로</span>
-        </div>
-        <!-- 하단 HUD 방향 배지: 목적지 상대 방향 -->
+
+        <!-- HUD: 방향 + 거리 (네비게이션 하단 안내) -->
         <div id="hudBadge" class="hud-badge hidden">
           <span class="hud-arrow">⬆</span>
           <span class="hud-text">화살표 방향으로 가세요</span>
+        </div>
+
+        <div class="nav-actions">
+          <button id="backToSelect" class="big-back" type="button">← 다른 가게 선택</button>
+          <button id="restartBtn" class="big-back home" type="button">🏠 처음으로</button>
         </div>
       </section>
     </main>
