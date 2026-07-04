@@ -104,9 +104,14 @@ const CATEGORIES = [
 ];
 // 신선이(물고기)로 안내할 품목 키워드 — 그 외에는 무농이(무)
 const FISH_TERMS = ["수산", "생선", "회", "건어물", "팔도특산품", "특산품", "젓갈"];
+const FISH_CAT_LABELS = ["수산·생선", "건어물·특산품"];   // 신선이 담당 카테고리
 
 function mascotFor(q) {
-  const fish = FISH_TERMS.some((t) => t.includes(q) || q.includes(t));
+  // "갈치"처럼 구체 품목을 말해도 카테고리 사전으로 먼저 판별 (handleQuery 와 같은 확장 규칙)
+  const catDef = CATEGORIES.find((c) => c.terms.some((t) => t === q || q.includes(t)));
+  const fish = catDef
+    ? FISH_CAT_LABELS.includes(catDef.label)
+    : FISH_TERMS.some((t) => t.includes(q) || q.includes(t));
   return fish
     ? { img: "assets/sinseoni.png", name: "신선이" }
     : { img: "assets/munongi.png", name: "무농이" };
