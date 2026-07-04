@@ -35,7 +35,7 @@ let MOTION_ON = false;     // devicemotion 리스너 부착 여부
 let stepRising = false;    // 가속도 피크 감지용 상태
 let accLP = 0;             // 가속도 크기 저역 필터값
 let lastStepT = 0;         // 마지막 걸음 시각(중복 방지)
-let arrivedSpoken = false; // 도착 음성 1회만
+let lastGuideKey = null;   // 행동 지시 상태 키 — 바뀔 때만 TTS 발화 (거리 숫자 변화로는 발화 안 함)
 let NAV_BASE = null;       // { bearing: 안내 시작 시 경로 방향, compass0: 그때의 나침반값 } — 상대 회전 기준
 let stepRafPending = false;
 const STEP_METERS = 0.7;   // 한 걸음 보폭(성인 평균 근사)
@@ -308,11 +308,11 @@ function selectStore(store) {
   const xy = storeXY(store);
   const sameView = viewOf(store.building, store.floor) === viewOf(currentLoc.building, currentLoc.floor);
 
-  // 목적지 배너 (세부 주소는 표시하지 않음 — 지도가 위치를 보여준다)
-  document.getElementById("navDestName").textContent = store.name;
+  // 지시 카드 목적지 줄 (세부 주소는 표시하지 않음 — 지도가 위치를 보여준다)
+  document.getElementById("navDestName").textContent = `${store.name}까지`;
 
-  // 걸음 추적 준비: 사용자 제스처(카드 탭) 안에서 센서 권한 확보 + 도착 안내 초기화
-  arrivedSpoken = false;
+  // 걸음 추적 준비: 사용자 제스처(카드 탭) 안에서 센서 권한 확보 + 지시 상태 초기화
+  lastGuideKey = null;
   enableMotion();
 
   // 지도: 새 안내는 항상 주행 시점부터. 층간이면 현재 층부터(에스컬레이터까지 1단계 안내)
@@ -527,21 +527,90 @@ function doStep() {
   onPositionChanged();
 }
 
-// 위치 변경 후: 도착 판정 + 지도 재렌더(경로·마커·3D 기준점 갱신)
+// 위치 변경 후: 지도 재렌더(경로·마커·3D 기준점·행동 지시 갱신 — 도착 판정은 guidance가 담당)
 function onPositionChanged() {
-  const xy = destStore ? storeXY(destStore) : null;
-  const sameView = destStore &&
-    viewOf(destStore.building, destStore.floor) === viewOf(currentLoc.building, currentLoc.floor);
-  if (xy && sameView) {
-    const plan = planFor(dongOf(currentLoc.building), currentLoc.floor);
-    if (dist(currentLoc, xy) < arriveR(plan) && !arrivedSpoken) {
-      arrivedSpoken = true;
-      speak(`${destStore.name}에 도착했어요! 주변 매대를 둘러보세요.`);
-    }
-  }
   if (!stepRafPending) {
     stepRafPending = true;
     requestAnimationFrame(() => { stepRafPending = false; renderMap(); });
+  }
+}
+
+// ── 행동 지시 (차량 내비식) ────────────────────────────────
+// 현재 위치 층 기준으로 "지금 뭘 해야 하는지"를 계산한다 (보고 있는 층과 무관).
+// key = 상태 식별자 — 같은 상태에서 거리 숫자만 바뀌면 TTS 를 다시 말하지 않기 위한 값.
+
+// 폴리라인에서 첫 굽이(≥35°)까지의 누적 거리와 방향을 찾는다.
+// 8px 미만 짧은 세그먼트는 방위 노이즈라 방향 판정에서 제외(거리에는 포함).
+function nextTurn(pts) {
+  let acc = 0, prevBear = null;
+  for (let i = 1; i < pts.length; i++) {
+    const a = { x: pts[i - 1][0], y: pts[i - 1][1] };
+    const b = { x: pts[i][0], y: pts[i][1] };
+    const seg = Math.hypot(b.x - a.x, b.y - a.y);
+    if (seg >= 8) {
+      const bear = bearingTo(a, b);
+      if (prevBear != null) {
+        const diff = ((bear - prevBear + 540) % 360) - 180;
+        if (diff <= -35) return { distPx: acc, dir: "왼쪽" };
+        if (diff >= 35) return { distPx: acc, dir: "오른쪽" };
+      }
+      prevBear = bear;
+    }
+    acc += seg;
+  }
+  return { distPx: acc, dir: null };   // 끝까지 직진
+}
+
+function computeGuidance() {
+  if (!destStore) return null;
+  const curPlan = planFor(dongOf(currentLoc.building), currentLoc.floor);
+  const destXY = storeXY(destStore);
+  const sameView = viewOf(destStore.building, destStore.floor) === viewOf(currentLoc.building, currentLoc.floor);
+  const esc = curPlan && curPlan.escalator ? { x: curPlan.escalator[0], y: curPlan.escalator[1] } : null;
+  const target = sameView ? destXY : esc;
+
+  if (!target) return { key: "map", icon: "🧭", text: "지도를 참고해 이동하세요", speak: null };
+
+  const remain = dist(currentLoc, target);
+  // 도착 판정
+  if (sameView && remain < arriveR(curPlan)) {
+    return { key: "arrive", icon: "🏁", text: "도착! 주변 매대를 둘러보세요",
+             speak: `${destStore.name}에 도착했어요! 주변 매대를 둘러보세요.` };
+  }
+  if (!sameView && remain < arriveR(curPlan) * 0.8) {
+    const fl = floorLabel(destStore.floor);
+    const move = destStore.floor > currentLoc.floor ? "올라가세요" : "내려가세요";
+    return { key: "esc-arrive", icon: "🛗", text: `에스컬레이터를 타고 ${fl}으로`,
+             speak: `에스컬레이터를 타고 ${fl}으로 ${move}.` };
+  }
+
+  const t = nextTurn(computeRoutePts(currentLoc, target, curPlan));
+  const suffix = sameView ? "" : " (에스컬레이터 방면)";
+  if (t.dir && t.distPx < 15) {
+    return { key: `soon-${t.dir}`, icon: t.dir === "왼쪽" ? "↰" : "↱",
+             text: `잠시 후 ${t.dir}으로`, speak: `잠시 후 ${t.dir}으로 도세요.` };
+  }
+  if (t.dir) {
+    const m = approxMeters(t.distPx, curPlan);
+    return { key: `straight-${t.dir}`, icon: "⬆",
+             text: m ? `직진 ${m}m 후 ${t.dir}${suffix}` : `직진 후 ${t.dir}${suffix}`,
+             speak: `${m ? `${m}미터 ` : ""}직진 후 ${t.dir}으로 도세요.` };
+  }
+  const m = approxMeters(remain, curPlan);
+  return { key: "straight-final", icon: "⬆",
+           text: m ? `직진 ${m}m${suffix}` : "화살표 방향으로 직진",
+           speak: "화살표 방향으로 직진하세요." };
+}
+
+// 지시 카드 갱신. silent=true 면 TTS 없이 상태만 맞춘다 (안내 시작 직후 중복 발화 방지).
+function updateGuidance(silent) {
+  const g = computeGuidance();
+  if (!g) return;
+  document.getElementById("guideIcon").textContent = g.icon;
+  document.getElementById("guideText").textContent = g.text;
+  if (g.key !== lastGuideKey) {
+    if (!silent && g.speak) speak(g.speak);
+    lastGuideKey = g.key;
   }
 }
 
@@ -656,8 +725,9 @@ function renderMap() {
       : `${shortBuilding(currentLoc.building)} ${floorLabel(shownFloor)} · 약식 안내도`;
   }
 
-  updateMapMode();  // 주행 시점(1인칭) / 전체 지도 배치 적용
-  applyHeading();   // 헤딩 콘·HUD 화살표 갱신
+  updateMapMode();      // 주행 시점(1인칭) / 전체 지도 배치 적용
+  applyHeading();       // 헤딩 콘·HUD 화살표 갱신
+  updateGuidance(lastGuideKey === null);   // 행동 지시 카드 (안내 시작 직후엔 무발화 — selectStore 인사와 중복 방지)
 }
 
 // ── 1인칭 주행 시점 (차량 내비 스타일) ─────────────────────
@@ -791,7 +861,7 @@ function sync3D() {
     scene.add(box);
   });
 
-  // 경로: 통로를 따라가는 주황 튜브.
+  // 경로: 통로를 따라가는 주황 튜브 + 진행 방향 셰브론(원뿔).
   // 발밑 구간(앞 10px)은 잘라 화면을 가리지 않게 하고, 목적지가 사실상 제자리면 생략.
   const target = NAV3D.dest || NAV3D.esc;
   const nearTarget = target && Math.hypot(target.x - currentLoc.x, target.y - currentLoc.y) < 14;
@@ -803,7 +873,52 @@ function sync3D() {
       new THREE.TubeGeometry(curve, 80, 0.45, 8, false),
       new THREE.MeshBasicMaterial({ color: 0xe8731a })   // 광원 무관 순색 (과노출 방지)
     ));
+    // 셰브론: ~7m(14px) 간격으로 경로 방향을 가리키는 밝은 원뿔 (정적 — 상시 rAF 없음)
+    const coneGeo = new THREE.ConeGeometry(0.5, 1.1, 6);
+    const coneMat = new THREE.MeshBasicMaterial({ color: 0xffc07e });
+    const up = new THREE.Vector3(0, 1, 0);
+    let acc = 0;
+    for (let i = 1; i < tubePts.length; i++) {
+      const [ax, ay] = tubePts[i - 1], [bx, by] = tubePts[i];
+      const seg = Math.hypot(bx - ax, by - ay);
+      if (!seg) continue;
+      for (let d = 14 - (acc % 14); d < seg; d += 14) {
+        const t = d / seg;
+        const cone = new THREE.Mesh(coneGeo, coneMat);
+        cone.position.set((ax + (bx - ax) * t) * mpp, 0.3, (ay + (by - ay) * t) * mpp);
+        cone.quaternion.setFromUnitVectors(up, new THREE.Vector3(bx - ax, 0, by - ay).normalize());
+        scene.add(cone);
+      }
+      acc += seg;
+    }
   }
+
+  // 도착 링: 목적지 바닥의 반투명 주황 원 (도착 지점을 눈에 띄게)
+  if (NAV3D.dest) {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(2.6, 4, 40),
+      new THREE.MeshBasicMaterial({ color: 0xe8731a, transparent: true, opacity: 0.35, side: THREE.DoubleSide })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(NAV3D.dest.x * mpp, 0.05, NAV3D.dest.y * mpp);
+    scene.add(ring);
+  }
+
+  // 주변 가게 라벨: 현재 층 정밀좌표 매장 중 "경로 주변" 가까운 순 최대 10곳.
+  // 현재위치 반경이 아니라 경로 기준인 이유: 주행하며 지나치는 가게가 시야에 걸리도록.
+  const hereKey = `${shownDong}|${shownFloor}`;
+  const routePoly = NAV3D.routePts;
+  const nearDist = (s) => routePoly && routePoly.length >= 2
+    ? projectOnCorridor(s, routePoly).d
+    : dist(currentLoc, s);
+  STORES
+    .filter((s) => s !== destStore && Number.isFinite(s.x) && Number.isFinite(s.y) &&
+                   viewOf(s.building, s.floor) === hereKey)
+    .map((s) => ({ s, d: nearDist(s) }))
+    .filter((o) => o.d < 80)                 // 경로에서 ≈40m 이내
+    .sort((a, b) => a.d - b.d)
+    .slice(0, 10)
+    .forEach((o) => scene.add(miniLabel3D(o.s, mpp)));
 
   // 목적지·에스컬레이터 핀 (현재위치와 사실상 겹치면 생략 — 핀 내부에서 보게 되는 문제 방지)
   const farEnough = (p) => Math.hypot(p.x - currentLoc.x, p.y - currentLoc.y) > 14;
@@ -841,6 +956,22 @@ function pin3D(pt, color, label, mpp) {
   }
   gp.position.set(pt.x * mpp, 0, pt.y * mpp);
   return gp;
+}
+
+// 주변 매장 이름 미니 라벨 (기둥 없는 작은 스프라이트 — 주변에 뭐가 있는지 보여준다)
+function miniLabel3D(s, mpp) {
+  const c = document.createElement("canvas");
+  c.width = 384; c.height = 96;
+  const g = c.getContext("2d");
+  g.fillStyle = "rgba(74, 106, 82, 0.92)";
+  roundRectPath(g, 6, 6, 372, 84, 22); g.fill();
+  g.fillStyle = "#fff"; g.font = "700 44px sans-serif";
+  g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText(s.name.length > 9 ? s.name.slice(0, 9) + "…" : s.name, 192, 50);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), fog: false }));
+  sp.scale.set(6.4, 1.6, 1);
+  sp.position.set(s.x * mpp, 2.3, s.y * mpp);
+  return sp;
 }
 
 // 카메라: 현재위치 눈높이(1.6m)에서 바라보는 방향(activeHeading)으로

@@ -7,7 +7,7 @@
   <!-- 모바일 세로 화면 우선 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>가락몰 길찾기</title>
-  <link rel="stylesheet" href="styles.css?v=9" />
+  <link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body>
   <div id="app">
@@ -57,43 +57,42 @@
       </section>
 
       <!-- ═══ 3단계: 네비게이션 ═══ -->
+      <!-- 지도가 화면 배경(풀블리드), 지시 카드·버튼은 지도 위 오버레이 -->
       <section id="stepNav" class="step-view hidden">
-        <!-- 목적지 배너 (네비게이션 상단) -->
-        <div class="nav-banner">
-          <div class="nav-dest">
-            <span class="nav-dest-label">목적지</span>
-            <strong id="navDestName">-</strong>
+        <div class="map-stage" id="mapStage">
+          <div class="fp-tilt" id="fpTilt">
+            <svg id="mapSvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"
+                 xmlns="http://www.w3.org/2000/svg" role="img" aria-label="가락몰 평면도"></svg>
           </div>
-          <button id="trackBtn" class="tts-btn" type="button" aria-label="걸음 따라가기 켜기/끄기">👣</button>
-          <button id="ttsBtn" class="tts-btn" type="button" aria-label="음성 안내 켜기/끄기">🔊</button>
         </div>
 
-        <!-- 지도: 주행 시점(1인칭, 기본) / 전체 지도 토글 -->
-        <div class="map-card">
-          <div class="map-toolbar">
-            <span id="mapTitle" class="floor-label">평면도</span>
-            <div class="view-toggle">
-              <button id="mode3dBtn" type="button" class="active">🧭 주행 시점</button>
-              <button id="mode2dBtn" type="button">🗺️ 전체 지도</button>
+        <!-- 상단 오버레이: 행동 지시 카드 + 보기 모드 토글 -->
+        <div class="nav-overlay-top">
+          <div class="guide-card">
+            <span class="guide-icon" id="guideIcon">⬆</span>
+            <div class="guide-text">
+              <span class="guide-dest" id="navDestName">-</span>
+              <strong id="guideText">안내를 시작합니다</strong>
             </div>
+            <button id="trackBtn" class="tts-btn" type="button" aria-label="걸음 따라가기 켜기/끄기">👣</button>
+            <button id="ttsBtn" class="tts-btn" type="button" aria-label="음성 안내 켜기/끄기">🔊</button>
+          </div>
+          <div class="view-toggle">
+            <button id="mode3dBtn" type="button" class="active">🧭 주행 시점</button>
+            <button id="mode2dBtn" type="button">🗺️ 전체 지도</button>
+          </div>
+        </div>
+
+        <!-- 하단 오버레이: 층탭(전체 지도 모드에서만) + 큰 버튼 -->
+        <div class="nav-overlay-bottom">
+          <div class="floor-row">
+            <span id="mapTitle" class="floor-label-chip">평면도</span>
             <div id="floorTabs" class="floor-tabs"></div>
           </div>
-          <div class="map-stage" id="mapStage">
-            <div class="fp-tilt" id="fpTilt">
-              <svg id="mapSvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"
-                   xmlns="http://www.w3.org/2000/svg" role="img" aria-label="가락몰 평면도"></svg>
-            </div>
+          <div class="nav-actions">
+            <button id="backToSelect" class="big-back" type="button">← 다른 가게 선택</button>
+            <button id="restartBtn" class="big-back home" type="button">🏠 처음으로</button>
           </div>
-          <div class="map-legend">
-            <span><i class="dot cur"></i> 현재위치</span>
-            <span><i class="dot dest"></i> 목적지</span>
-            <span><i class="dot route"></i> 이동 경로</span>
-          </div>
-        </div>
-
-        <div class="nav-actions">
-          <button id="backToSelect" class="big-back" type="button">← 다른 가게 선택</button>
-          <button id="restartBtn" class="big-back home" type="button">🏠 처음으로</button>
         </div>
       </section>
     </main>
@@ -104,6 +103,6 @@
   </div>
 
   <script src="vendor/three.min.js"></script>
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
