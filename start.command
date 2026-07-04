@@ -23,7 +23,7 @@ IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)
 echo ""
 echo "🛒  가락몰 길찾기 서버를 시작합니다"
 echo "────────────────────────────────────────────"
-echo "  📱 폰으로 접속 (같은 와이파이):  http://$IP:$PORT/?loc=b1-f1-front"
+echo "  📱 폰으로 접속 (같은 와이파이):  http://$IP:$PORT/?loc=g-b1-west"
 echo "  🏷️  QR 생성/인쇄 (PC 화면):       http://$IP:$PORT/admin-qr.html"
 echo "  📍 좌표 매핑 도구:                http://$IP:$PORT/admin-map.html"
 echo "────────────────────────────────────────────"
