@@ -231,7 +231,6 @@ main { flex: 1; padding: 12px 14px 2px; }
   background: linear-gradient(transparent, rgba(250, 246, 238, 0.92) 45%);
 }
 .floor-row { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; }
-#stepNav:has(.map-stage.mode-3d) .floor-row { display: none; }  /* 주행 시점은 항상 내 층 */
 .floor-label-chip {
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid var(--line);
@@ -251,52 +250,13 @@ main { flex: 1; padding: 12px 14px 2px; }
   cursor: pointer;
 }
 .floor-tabs button.active { background: var(--green); border-color: var(--green); color: #fff; }
-/* 지도 스테이지 — 화면 전체가 지도. 2D(전체 지도)는 letterbox, .mode-3d 면 1인칭 주행 시점 */
+/* 지도 스테이지 — 화면 전체가 지도 (배치·회전은 app.js layoutMap 이 인라인으로 적용) */
 .map-stage {
   position: absolute; inset: 0;
   overflow: hidden;
   background: #fdfcf9;
 }
-.fp-tilt { position: absolute; inset: 0; transform-origin: 50% 100%; }
-/* 2D: 스테이지에 맞춰 letterbox (viewBox meet 가 비율 유지) */
 #mapSvg { display: block; width: 100%; height: 100%; }
-
-/* 1인칭 모드: 원근 기울임(차량 내비 시점).
-   지도 자체는 app.js 가 현재위치 기준 회전·확대·이동(transform)을 계산해 적용 */
-.map-stage.mode-3d {
-  perspective: 560px;
-  background: linear-gradient(#d8cfb8 0%, #efe8d6 38%, #fdfcf9 100%);  /* 위쪽=먼 곳 */
-}
-.map-stage.mode-3d .fp-tilt {
-  transform: rotateX(60deg);
-}
-.map-stage.mode-3d #mapSvg {
-  position: absolute;
-  height: auto;
-  transition: transform 0.15s linear;   /* 나침반 회전 부드럽게 */
-  will-change: transform;
-}
-
-/* 주행/전체 토글 (지도 위 플로팅) */
-.view-toggle {
-  display: flex; gap: 4px;
-  background: rgba(250, 246, 238, 0.95);
-  border: 1px solid var(--line);
-  box-shadow: var(--card-shadow);
-  border-radius: 999px; padding: 3px;
-}
-.view-toggle button {
-  border: none;
-  background: transparent;
-  border-radius: 999px;
-  padding: 5px 10px;
-  font-size: 0.85rem;
-  font-weight: 800;
-  color: #7a8378;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.view-toggle button.active { background: var(--green); color: #fff; }
 
 .nav-actions { display: flex; gap: 10px; }
 .nav-actions .big-back { flex: 1; }
