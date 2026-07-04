@@ -36,6 +36,7 @@ let stepRising = false;    // 가속도 피크 감지용 상태
 let accLP = 0;             // 가속도 크기 저역 필터값
 let lastStepT = 0;         // 마지막 걸음 시각(중복 방지)
 let arrivedSpoken = false; // 도착 음성 1회만
+let NAV_BASE = null;       // { bearing: 안내 시작 시 경로 방향, compass0: 그때의 나침반값 } — 상대 회전 기준
 let stepRafPending = false;
 const STEP_METERS = 0.7;   // 한 걸음 보폭(성인 평균 근사)
 const STEP_MIN_MS = 350;   // 걸음 최소 간격
@@ -317,6 +318,23 @@ function selectStore(store) {
   goStep("nav");    // 먼저 화면을 보이게 한 뒤 렌더 (숨김 상태에선 3D 배치 크기가 0으로 계산됨)
   renderMap();
 
+  // 시야 기준 = 경로 진행 방향. 발밑 진입점이 아니라 경로를 따라 15m쯤 간 지점을 바라본다.
+  // 나침반은 여기서부터 상대 회전 (몸을 돌린 만큼 시야가 돈다).
+  let tgt = pointAlongRoute(30);
+  if (tgt && Math.hypot(tgt.x - currentLoc.x, tgt.y - currentLoc.y) < 15) tgt = null;  // 왕복성 제자리 경로
+  if (!tgt && NAV3D && NAV3D.plan && NAV3D.plan.corridor) {
+    // 경로가 제자리 수준(이미 목적 지점)이면 통로 방향을 바라본다 (벽만 보는 화면 방지)
+    const c = NAV3D.plan.corridor;
+    const pr = projectOnCorridor(currentLoc, c);
+    const nxt = c[Math.min(pr.seg + 1, c.length - 1)];
+    tgt = { x: nxt[0], y: nxt[1] };
+    if (Math.hypot(tgt.x - currentLoc.x, tgt.y - currentLoc.y) < 6) tgt = null;
+  }
+  if (tgt) {
+    NAV_BASE = { bearing: bearingTo(currentLoc, tgt), compass0: USER_HEADING };
+    applyHeading();
+  }
+
   // 음성 안내 (네비게이션 시작)
   const plan = planFor(dongOf(store.building), store.floor);
   if (sameView && xy) {
@@ -336,10 +354,12 @@ function setupNavButtons() {
   });
   document.getElementById("backToSelect").addEventListener("click", () => {
     destStore = null;
+    NAV_BASE = null;
     goStep("select");
   });
   document.getElementById("restartBtn").addEventListener("click", () => {
     destStore = null;
+    NAV_BASE = null;
     candidates = [];
     document.getElementById("voiceStatus").textContent = "";
     goStep("input");
@@ -397,8 +417,16 @@ function bearingTo(from, to) {
   return (deg + 360) % 360;
 }
 
-// 현재 사용할 방위: 라이브 나침반 우선 → QR 고정값 → 없으면 북(0).
+// 현재 사용할 방위(지도 기준 시야 방향).
+// 안내 중(NAV_BASE)에는 "경로 방향 + 안내 시작 후 몸을 돌린 각도" — 어디서 테스트해도
+// 처음엔 경로를 바라보고, 몸을 돌리면 그만큼 시야가 돈다 (절대 방위는 실측 전 신뢰 불가).
 function activeHeading() {
+  if (NAV_BASE) {
+    if (USER_HEADING != null && NAV_BASE.compass0 != null) {
+      return (NAV_BASE.bearing + USER_HEADING - NAV_BASE.compass0 + 360) % 360;
+    }
+    return NAV_BASE.bearing;
+  }
   if (USER_HEADING != null) return USER_HEADING;
   return currentLoc.heading ?? 0;
 }
@@ -524,6 +552,7 @@ function onOrientation(e) {
     return;                                // 보정 불가 → 폴백 유지
   }
   USER_HEADING = USER_HEADING == null ? h : lowpassAngle(USER_HEADING, h, 0.15);
+  if (NAV_BASE && NAV_BASE.compass0 == null) NAV_BASE.compass0 = USER_HEADING;
   if (!rafPending) {
     rafPending = true;
     requestAnimationFrame(() => { rafPending = false; applyHeading(); });
@@ -664,7 +693,6 @@ function updateMapMode() {
 // 단위: 미터(픽셀좌표 × mpp). Three.js 미지원 기기는 CSS 기울임 뷰로 폴백.
 let T = null;          // { renderer, camera, canvas, scene }
 let NAV3D = null;      // renderMap 이 채우는 3D용 안내 데이터
-const TEX_CACHE = {};  // 평면도 텍스처 캐시 (재렌더 깜빡임 방지)
 
 let THREE_FAIL = false;   // WebGL 컨텍스트 생성 실패(구형 기기 등) → CSS 기울임 폴백
 function threeSupported() { return typeof THREE !== "undefined" && !THREE_FAIL; }
@@ -694,41 +722,6 @@ function ensureThree(stage) {
   }
 }
 
-function floorTexture(plan) {
-  const key = plan.file || "synthetic-g1f";
-  if (TEX_CACHE[key]) return TEX_CACHE[key];
-  let tex;
-  if (plan.file) {
-    tex = new THREE.TextureLoader().load(`floorplans/${plan.file}`, () => threeRender());
-  } else {
-    tex = new THREE.CanvasTexture(g1fCanvas(plan));
-  }
-  tex.anisotropy = 4;
-  TEX_CACHE[key] = tex;
-  return tex;
-}
-
-// 약식 1층 평면도를 캔버스로 그려 3D 바닥 텍스처로 사용
-function g1fCanvas(plan) {
-  const c = document.createElement("canvas");
-  c.width = plan.w * 2; c.height = plan.h * 2;   // 2배 해상도(선명도)
-  const g = c.getContext("2d");
-  g.scale(2, 2);
-  g.fillStyle = "#fdfcf9"; g.fillRect(0, 0, plan.w, plan.h);
-  g.fillStyle = "#ffffff"; g.strokeStyle = "#cfd8cf"; g.lineWidth = 3;
-  roundRectPath(g, 40, 52, 720, 256, 14); g.fill(); g.stroke();
-  const blocks = [
-    [70, 80, 230, 125, "#ddeef7", "수산부류", "#3f7693"],
-    [330, 80, 190, 125, "#f2ecd9", "건해부류", "#8a7a45"],
-    [550, 80, 190, 125, "#f9e4e0", "축산부류", "#a05b52"],
-  ];
-  g.textAlign = "center"; g.font = "700 26px sans-serif";
-  blocks.forEach(([x, y, w, h, fill, name, tc]) => {
-    g.fillStyle = fill; roundRectPath(g, x, y, w, h, 10); g.fill();
-    g.fillStyle = tc; g.fillText(name, x + w / 2, y + h / 2 + 9);
-  });
-  return c;
-}
 function roundRectPath(g, x, y, w, h, r) {
   g.beginPath();
   g.moveTo(x + r, y);
@@ -750,24 +743,36 @@ function sync3D() {
   scene.background = new THREE.Color(0xf2ecdc);
   scene.fog = new THREE.Fog(0xf2ecdc, 25, 170);   // 먼 곳은 옅게(깊이감)
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xcfc7b0, 1.05));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.5);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xcfc7b0, 0.95));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.35);
   sun.position.set(60, 90, 40);
   scene.add(sun);
 
-  // 바닥(평면도 텍스처) — SVG 좌표 (x,y) → 3D (x, 0, y)
+  // 바닥 — 단색 (평면도 텍스처는 눈높이에서 거대 색 덩어리로 보여 사용하지 않음.
+  // 평면도 확인은 '전체 지도' 모드가 담당)
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(W, H),
-    new THREE.MeshLambertMaterial({ map: floorTexture(plan) })
+    new THREE.MeshLambertMaterial({ color: 0xf6f1e4 })
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(W / 2, 0, H / 2);
   scene.add(floor);
 
   // 은은한 바닥 격자(4m 간격) — 걸을 때 이동감이 느껴지도록
-  const grid = new THREE.GridHelper(Math.max(W, H), Math.round(Math.max(W, H) / 4), 0xded6c2, 0xe9e2d2);
+  const grid = new THREE.GridHelper(Math.max(W, H), Math.round(Math.max(W, H) / 8), 0xd8d0bc, 0xe6dfcf);
+  grid.material.transparent = true;
+  grid.material.opacity = 0.35;   // 지평선 모아레(검은 띠) 방지
   grid.position.set(W / 2, 0.02, H / 2);
   scene.add(grid);
+
+  // 외곽 벽 (얕은 담장 — 실내 공간감)
+  const wallMat = new THREE.MeshLambertMaterial({ color: 0xeadfc6 });
+  [[W / 2, -0.4, W + 4, 0.8], [W / 2, H + 0.4, W + 4, 0.8], [-0.4, H / 2, 0.8, H], [W + 0.4, H / 2, 0.8, H]]
+    .forEach(([cx, cz, sx, sz]) => {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(sx, 3, sz), wallMat);
+      wall.position.set(cx, 1.5, cz);
+      scene.add(wall);
+    });
 
   // 매대 블록(입체)
   (plan.blocks3d || []).forEach(([x, y, w, h, ht]) => {
@@ -779,19 +784,24 @@ function sync3D() {
     scene.add(box);
   });
 
-  // 경로: 통로를 따라가는 주황 튜브
-  if (NAV3D.routePts && NAV3D.routePts.length >= 2) {
-    const v = NAV3D.routePts.map(([x, y]) => new THREE.Vector3(x * mpp, 0.12, y * mpp));
+  // 경로: 통로를 따라가는 주황 튜브.
+  // 발밑 구간(앞 10px)은 잘라 화면을 가리지 않게 하고, 목적지가 사실상 제자리면 생략.
+  const target = NAV3D.dest || NAV3D.esc;
+  const nearTarget = target && Math.hypot(target.x - currentLoc.x, target.y - currentLoc.y) < 14;
+  const tubePts = trimRouteStart(NAV3D.routePts, 10);
+  if (!nearTarget && tubePts && tubePts.length >= 2) {
+    const v = tubePts.map(([x, y]) => new THREE.Vector3(x * mpp, 0.12, y * mpp));
     const curve = new THREE.CatmullRomCurve3(v, false, "catmullrom", 0.05);
     scene.add(new THREE.Mesh(
       new THREE.TubeGeometry(curve, 80, 0.45, 8, false),
-      new THREE.MeshLambertMaterial({ color: 0xe8731a })
+      new THREE.MeshBasicMaterial({ color: 0xe8731a })   // 광원 무관 순색 (과노출 방지)
     ));
   }
 
-  // 목적지·에스컬레이터 핀
-  if (NAV3D.dest) scene.add(pin3D(NAV3D.dest, 0xe8731a, NAV3D.destLabel, mpp));
-  if (NAV3D.esc) scene.add(pin3D(NAV3D.esc, 0x7b5cc4, "에스컬레이터", mpp));
+  // 목적지·에스컬레이터 핀 (현재위치와 사실상 겹치면 생략 — 핀 내부에서 보게 되는 문제 방지)
+  const farEnough = (p) => Math.hypot(p.x - currentLoc.x, p.y - currentLoc.y) > 14;
+  if (NAV3D.dest && farEnough(NAV3D.dest)) scene.add(pin3D(NAV3D.dest, 0xe8731a, NAV3D.destLabel, mpp));
+  if (NAV3D.esc && farEnough(NAV3D.esc)) scene.add(pin3D(NAV3D.esc, 0x7b5cc4, "에스컬레이터", mpp));
 
   T.scene = scene;
   update3DCamera();
@@ -990,6 +1000,43 @@ function computeRoutePts(from, to, plan) {
     return [[from.x, from.y], [pa.x, pa.y], ...mid, [pb.x, pb.y], [to.x, to.y]];
   }
   return [[from.x, from.y], [from.x, to.y], [to.x, to.y]];   // ㄱ자 폴백
+}
+
+// 경로를 따라 누적 거리 distPx 만큼 진행한 지점 (시야 방향 계산용)
+function pointAlongRoute(distPx) {
+  if (!NAV3D || !NAV3D.routePts || NAV3D.routePts.length < 2) return null;
+  const pts = NAV3D.routePts;
+  let acc = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const seg = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    if (acc + seg >= distPx && seg > 0) {
+      const t = (distPx - acc) / seg;
+      return { x: pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * t,
+               y: pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * t };
+    }
+    acc += seg;
+  }
+  const last = pts[pts.length - 1];
+  const p = { x: last[0], y: last[1] };
+  // 경로가 아주 짧으면(제자리) null → 호출부에서 기존 heading 유지
+  return Math.hypot(p.x - currentLoc.x, p.y - currentLoc.y) > 6 ? p : null;
+}
+
+// 경로 앞부분 lenPx 를 잘라낸 좌표 목록 (3D 튜브가 발밑을 가리지 않게)
+function trimRouteStart(pts, lenPx) {
+  if (!pts || pts.length < 2) return null;
+  let acc = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const seg = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    if (acc + seg >= lenPx && seg > 0) {
+      const t = (lenPx - acc) / seg;
+      const sx = pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * t;
+      const sy = pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * t;
+      return [[sx, sy], ...pts.slice(i)];
+    }
+    acc += seg;
+  }
+  return null;   // 전체가 lenPx 이내 = 사실상 제자리
 }
 
 // 경로 SVG (2D 지도용)
