@@ -71,15 +71,30 @@ main { flex: 1; padding: 12px 14px 2px; }
 .mascot-say.intro .bubble small { font-size: 1rem; }
 
 /* ── 1단계: 음성 입력 ──────────────────── */
-.voice-wrap { text-align: center; }
+/* 1단계도 네비처럼 한 화면 고정 — 남는 세로 공간을 전부 마이크에 준다 */
+#app:has(#stepInput:not(.hidden)) { height: 100vh; height: 100dvh; min-height: auto; overflow: hidden; }
+#app:has(#stepInput:not(.hidden)) main { min-height: 0; display: flex; }
+#stepInput { flex: 1; min-height: 0; }
+
+.voice-wrap {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
 .mic-btn {
-  width: 132px; height: 132px;
+  /* 화면 폭 64% vs 남는 높이 기반 상한 중 작은 쪽 — 어떤 폰에서도 스크롤 없이 최대 */
+  width: clamp(132px, min(64vw, calc(100dvh - 420px)), 320px);
+  aspect-ratio: 1 / 1;
   border: none; border-radius: 50%;
   background: radial-gradient(circle at 32% 28%, #2c9450, var(--green) 62%);
-  box-shadow: 0 6px 18px rgba(30, 122, 60, 0.4);
+  box-shadow: 0 8px 22px rgba(30, 122, 60, 0.4);
   cursor: pointer;
   transition: transform 0.12s ease;
+  display: flex; align-items: center; justify-content: center;
 }
+.mic-btn svg { width: 46%; height: 46%; }
 .mic-btn:active { transform: scale(0.94); }
 .mic-btn.listening {
   background: radial-gradient(circle at 32% 28%, #f28b3b, var(--orange) 62%);
@@ -90,7 +105,7 @@ main { flex: 1; padding: 12px 14px 2px; }
   0%, 100% { box-shadow: 0 0 0 6px rgba(232, 115, 26, 0.25); }
   50% { box-shadow: 0 0 0 16px rgba(232, 115, 26, 0.1); }
 }
-.mic-label { margin-top: 6px; font-size: 1rem; font-weight: 700; color: var(--green-dark); }
+.mic-label { font-size: 1.05rem; font-weight: 700; color: var(--green-dark); }
 .voice-status { text-align: center; min-height: 1.2em; font-size: 0.95rem; color: var(--orange); font-weight: 700; }
 
 /* ── 1단계: 카테고리 버튼 ──────────────── */
@@ -270,8 +285,6 @@ main { flex: 1; padding: 12px 14px 2px; }
   color: #9a978e;
   font-size: 0.72rem;
 }
-
-.mic-btn svg { width: 62px; height: 62px; }
 
 /* 낮은 화면(폰 브라우저 주소창 포함)에서 푸터 숨겨 한 화면에 맞춤 */
 @media (max-height: 780px) {
