@@ -267,7 +267,7 @@ main { flex: 1; padding: 12px 14px 2px; }
   cursor: pointer;
 }
 .floor-tabs button.active { background: var(--green); border-color: var(--green); color: #fff; }
-/* 지도 스테이지 — 화면 전체가 지도 (배치·회전은 app.js layoutMap 이 인라인으로 적용) */
+/* 지도 스테이지 — 화면 전체가 지도 (배치는 app.js layoutMap 이 인라인으로 적용) */
 .map-stage {
   position: absolute; inset: 0;
   overflow: hidden;
@@ -275,8 +275,6 @@ main { flex: 1; padding: 12px 14px 2px; }
 }
 #mapSvg {
   display: block;
-  transition: transform 0.18s linear, left 0.18s linear, top 0.18s linear;  /* 나침반·GPS 갱신 부드럽게 */
-  will-change: transform;
 }
 
 /* ── 공통 ─────────────────────────────── */

@@ -21,7 +21,7 @@ let lastQuery = "";     // 마지막 검색어(가게 선택 화면 문구용)
 let shownDong = null;   // 지도에 표시 중인 동코드(A~G)
 let shownFloor = 1;     // 지도에 표시 중인 층
 
-// 방향 정렬 상태 — 지도는 북쪽 고정, 헤딩 콘/HUD 화살표만 회전
+// 방향 정렬 상태 — 지도는 북쪽 고정, 헤딩 콘만 회전
 let USER_HEADING = null;   // 실시간 나침반 방위(0~360) — 없으면 null(QR 고정값 폴백)
 let COMPASS_ON = false;    // 나침반 리스너 부착 여부(중복 부착 방지)
 let rafPending = false;    // applyHeading rAF 예약 중복 방지
@@ -493,7 +493,7 @@ function gpsDebugHud(lat, lng, acc) {
 window.__gps = (lat, lng, acc = 5) =>
   onGPS({ coords: { latitude: lat, longitude: lng, accuracy: acc } });
 
-// 위치 변경 후: 지도 재렌더(경로·마커·3D 기준점·행동 지시 갱신 — 도착 판정은 guidance가 담당)
+// 위치 변경 후: 지도 재렌더(경로·마커·행동 지시 갱신 — 도착 판정은 guidance가 담당)
 function onPositionChanged() {
   if (!stepRafPending) {
     stepRafPending = true;
@@ -625,7 +625,7 @@ function renderFloorTabs() {
 
 // ── 지도(SVG) 그리기 ───────────────────────────────────────
 // 공식 평면도 PNG를 배경으로 깔고 현재 위치/목적지 마커 + 통로 경로를 그린다.
-// 지도는 북쪽 고정. 헤딩 콘(현재위치 부채꼴)과 HUD 화살표만 사용자 방향으로 회전한다
+// 지도는 북쪽 고정. 헤딩 콘(현재위치 부채꼴)만 사용자 방향으로 회전한다
 // (전체 재렌더는 층 전환·새 목적지 때만, 나침반 갱신은 applyHeading 이 transform 만 변경).
 function renderMap() {
   const svg = document.getElementById("mapSvg");
@@ -690,10 +690,7 @@ function renderMap() {
   updateGuidance(lastGuideKey === null);   // 행동 지시 카드 (안내 시작 직후엔 무발화 — selectStore 인사와 중복 방지)
 }
 
-// 지도 배치 — 전체 지도 단일 모드.
-// 현재 위치 층: 현재위치를 화면 중앙에 고정하고 지도를 -heading 회전 (폰을 돌리면
-//   시선 표시가 아니라 지도가 돈다 = 내 정면이 항상 화면 위).
-// 다른 층 열람: 북쪽 고정 + letterbox 중앙 배치.
+// 지도 배치 — 전체 지도 단일 모드: 북쪽 고정 + letterbox 중앙 배치.
 function layoutMap() {
   const stage = document.getElementById("mapStage");
   const svg = document.getElementById("mapSvg");
@@ -706,33 +703,15 @@ function layoutMap() {
   svg.style.position = "absolute";
   svg.style.width = vbW * f + "px";
   svg.style.height = vbH * f + "px";
-
-  const onFloor = viewOf(currentLoc.building, currentLoc.floor) === `${shownDong}|${shownFloor}`;
-  const H = onFloor ? activeHeading() : 0;
-  if (onFloor) {
-    // 현재위치를 화면 중앙에 고정하고 그 점을 축으로 회전
-    const px = currentLoc.x * f, py = currentLoc.y * f;
-    svg.style.left = vw / 2 - px + "px";
-    svg.style.top = vh / 2 - py + "px";
-    svg.style.transformOrigin = `${px}px ${py}px`;
-    svg.style.transform = `rotate(${-H}deg)`;
-  } else {
-    svg.style.left = (vw - vbW * f) / 2 + "px";
-    svg.style.top = (vh - vbH * f) / 2 + "px";
-    svg.style.transform = "";
-  }
-  // 마커 라벨 글자 정립 (지도가 -H 돌았으니 라벨은 +H 역회전)
-  document.querySelectorAll("#mapSvg .lbl").forEach((el) => {
-    el.setAttribute("transform", onFloor && H ? `rotate(${H} ${el.dataset.x} ${el.dataset.y})` : "");
-  });
+  svg.style.left = (vw - vbW * f) / 2 + "px";
+  svg.style.top = (vh - vbH * f) / 2 + "px";
 }
 
-// 재렌더 없이 방향 요소만 갱신: 헤딩 콘 회전 + 지도 배치(layoutMap)
+// 재렌더 없이 헤딩 콘(사용자가 보는 방향)만 회전
 function applyHeading() {
   const H = activeHeading();
   const cone = document.getElementById("headCone");
   if (cone) cone.setAttribute("transform", `rotate(${H} ${currentLoc.x} ${currentLoc.y})`);
-  layoutMap();
 }
 
 // 헤딩 콘: 현재위치 마커 아래에 깔리는 부채꼴(사용자가 보는 방향).
@@ -817,7 +796,7 @@ function projectOnCorridor(p, poly) {
 }
 
 // 경로 좌표 계산: from → (통로 진입) → 통로 중심선 따라 이동 → (통로 이탈) → to
-// corridor 가 없으면 ㄱ자 꺾은선 폴백. SVG(2D)와 Three.js(3D)가 공용으로 쓴다.
+// corridor 가 없으면 ㄱ자 꺾은선 폴백.
 function computeRoutePts(from, to, plan) {
   const corridor = plan && plan.corridor;
   if (corridor && corridor.length >= 2) {
@@ -860,10 +839,8 @@ function marker(x, y, color, label, glyph, k) {
     <g>
       <circle cx="${x}" cy="${y}" r="${r}" fill="${color}" stroke="#fff" stroke-width="${Math.max(2, 5 * k)}"/>
       <text x="${x}" y="${y + fs * 0.36}" font-size="${fs}" fill="#fff" text-anchor="middle" font-weight="700">${glyph}</text>
-      <g class="lbl" data-x="${x}" data-y="${y}">
-        <rect x="${x - lw / 2}" y="${y + r + 4 * k}" width="${lw}" height="${fs * 1.7}" rx="${8 * k}" fill="${color}" opacity="0.95"/>
-        <text x="${x}" y="${y + r + 4 * k + fs * 1.2}" font-size="${fs}" fill="#fff" text-anchor="middle" font-weight="700">${label}</text>
-      </g>
+      <rect x="${x - lw / 2}" y="${y + r + 4 * k}" width="${lw}" height="${fs * 1.7}" rx="${8 * k}" fill="${color}" opacity="0.95"/>
+      <text x="${x}" y="${y + r + 4 * k + fs * 1.2}" font-size="${fs}" fill="#fff" text-anchor="middle" font-weight="700">${label}</text>
     </g>`;
 }
 
