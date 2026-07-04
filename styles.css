@@ -273,7 +273,11 @@ main { flex: 1; padding: 12px 14px 2px; }
   overflow: hidden;
   background: #fdfcf9;
 }
-#mapSvg { display: block; width: 100%; height: 100%; }
+#mapSvg {
+  display: block;
+  transition: transform 0.18s linear, left 0.18s linear, top 0.18s linear;  /* 나침반·GPS 갱신 부드럽게 */
+  will-change: transform;
+}
 
 /* ── 공통 ─────────────────────────────── */
 .hidden { display: none !important; }

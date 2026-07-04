@@ -618,8 +618,42 @@ function renderMap() {
   updateGuidance(lastGuideKey === null);   // 행동 지시 카드 (안내 시작 직후엔 무발화 — selectStore 인사와 중복 방지)
 }
 
-// 지도 배치 스텁 — Task 4에서 회전·따라가기 구현으로 교체
-function layoutMap() {}
+// 지도 배치 — 전체 지도 단일 모드.
+// 현재 위치 층: 현재위치를 화면 중앙에 고정하고 지도를 -heading 회전 (폰을 돌리면
+//   시선 표시가 아니라 지도가 돈다 = 내 정면이 항상 화면 위).
+// 다른 층 열람: 북쪽 고정 + letterbox 중앙 배치.
+function layoutMap() {
+  const stage = document.getElementById("mapStage");
+  const svg = document.getElementById("mapSvg");
+  const plan = planFor(shownDong, shownFloor);
+  const vbW = plan ? plan.w : 1000;
+  const vbH = plan ? plan.h : 1000;
+  const vw = stage.clientWidth, vh = stage.clientHeight;
+  if (!vw || !vh) { requestAnimationFrame(layoutMap); return; }   // 숨김 상태면 재시도
+  const f = Math.min(vw / vbW, vh / vbH);   // 지도 전체가 보이는 letterbox 배율
+  svg.style.position = "absolute";
+  svg.style.width = vbW * f + "px";
+  svg.style.height = vbH * f + "px";
+
+  const onFloor = viewOf(currentLoc.building, currentLoc.floor) === `${shownDong}|${shownFloor}`;
+  const H = onFloor ? activeHeading() : 0;
+  if (onFloor) {
+    // 현재위치를 화면 중앙에 고정하고 그 점을 축으로 회전
+    const px = currentLoc.x * f, py = currentLoc.y * f;
+    svg.style.left = vw / 2 - px + "px";
+    svg.style.top = vh / 2 - py + "px";
+    svg.style.transformOrigin = `${px}px ${py}px`;
+    svg.style.transform = `rotate(${-H}deg)`;
+  } else {
+    svg.style.left = (vw - vbW * f) / 2 + "px";
+    svg.style.top = (vh - vbH * f) / 2 + "px";
+    svg.style.transform = "";
+  }
+  // 마커 라벨 글자 정립 (지도가 -H 돌았으니 라벨은 +H 역회전)
+  document.querySelectorAll("#mapSvg .lbl").forEach((el) => {
+    el.setAttribute("transform", onFloor && H ? `rotate(${H} ${el.dataset.x} ${el.dataset.y})` : "");
+  });
+}
 
 // 재렌더 없이 방향 요소만 갱신: 헤딩 콘 회전 + 지도 배치(layoutMap)
 function applyHeading() {
