@@ -180,22 +180,24 @@ main { flex: 1; padding: 12px 14px 2px; }
   line-height: 1.25;
 }
 
-/* 큰 뒤로가기/처음으로 버튼 (5060 배려: 명확한 문구 + 큰 터치 영역) */
-.big-back {
-  width: 100%;
+/* 상단 뒤로가기 칩 (2·3단계 공용) — 5060 배려로 터치 높이 44px 이상 */
+.back-chip {
+  align-self: flex-start;
   border: 2px solid var(--line);
   background: #fff;
-  border-radius: 16px;
-  padding: 10px 8px;
-  font-size: 1rem;
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 8px 16px;
+  font-size: 0.95rem;
   font-weight: 800;
   color: #55605a;
   cursor: pointer;
   box-shadow: var(--card-shadow);
-  word-break: keep-all;
   white-space: nowrap;
 }
-.big-back:active { border-color: var(--green); color: var(--green-dark); }
+.back-chip:active { border-color: var(--green); color: var(--green-dark); }
+.nav-chip-row { display: flex; gap: 8px; justify-content: flex-start; }
+.nav-chip-row .back-chip { align-self: auto; }
 
 /* ── 3단계: 네비게이션 (지도 풀블리드 + 오버레이) ── */
 /* 네비 화면일 때만 앱 전체를 한 화면에 고정 — 1·2단계 스크롤은 불변 */
@@ -207,7 +209,7 @@ main { flex: 1; padding: 12px 14px 2px; }
 .nav-overlay-top {
   position: absolute; top: 0; left: 0; right: 0; z-index: 5;
   padding: 10px 12px 0;
-  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 8px;
   pointer-events: none;               /* 지도 조작 방해 금지 — 자식만 클릭 가능 */
 }
 .nav-overlay-top > * { pointer-events: auto; }
@@ -272,9 +274,6 @@ main { flex: 1; padding: 12px 14px 2px; }
   background: #fdfcf9;
 }
 #mapSvg { display: block; width: 100%; height: 100%; }
-
-.nav-actions { display: flex; gap: 10px; }
-.nav-actions .big-back { flex: 1; }
 
 /* ── 공통 ─────────────────────────────── */
 .hidden { display: none !important; }

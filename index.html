@@ -47,13 +47,13 @@
 
       <!-- ═══ 2단계: 가게 선택 ═══ -->
       <section id="stepSelect" class="step-view hidden">
+        <button id="backToInput" class="back-chip" type="button">← 다른 품목 찾기</button>
         <div class="mascot-say">
           <img id="selectMascot" class="mascot" src="assets/munongi.png" alt="안내 캐릭터" />
           <p class="bubble" id="selectBubble">어느 가게로 안내할까요?</p>
         </div>
         <p class="select-hint" id="selectHint"></p>
         <div id="storeList" class="store-list"><!-- app.js 에서 채움 --></div>
-        <button id="backToInput" class="big-back" type="button">← 다른 품목 찾기</button>
       </section>
 
       <!-- ═══ 3단계: 네비게이션 ═══ -->
@@ -75,17 +75,17 @@
             <button id="trackBtn" class="tts-btn" type="button" aria-label="위치 따라가기 켜기/끄기">📍</button>
             <button id="ttsBtn" class="tts-btn" type="button" aria-label="음성 안내 켜기/끄기">🔊</button>
           </div>
+          <div class="nav-chip-row">
+            <button id="backToSelect" class="back-chip" type="button">← 다른 가게 선택</button>
+            <button id="restartBtn" class="back-chip" type="button">🏠 처음으로</button>
+          </div>
         </div>
 
-        <!-- 하단 오버레이: 층탭(전체 지도 모드에서만) + 큰 버튼 -->
+        <!-- 하단 오버레이: 층탭 -->
         <div class="nav-overlay-bottom">
           <div class="floor-row">
             <span id="mapTitle" class="floor-label-chip">평면도</span>
             <div id="floorTabs" class="floor-tabs"></div>
-          </div>
-          <div class="nav-actions">
-            <button id="backToSelect" class="big-back" type="button">← 다른 가게 선택</button>
-            <button id="restartBtn" class="big-back home" type="button">🏠 처음으로</button>
           </div>
         </div>
       </section>
