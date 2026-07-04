@@ -70,6 +70,26 @@ function storeXY(s) {
   return null;
 }
 
+// 위경도 → 평면도 픽셀. plan.geo.anchors 2점으로 유사변환(축척+회전) 계산.
+// 원리: A 앵커 기준 동거리(ENU) 미터로 편 뒤, A→B 실벡터가 A→B 픽셀벡터로 가는
+// 복소 배율 k(=s+ir)를 구해 임의 점에 적용한다. (SVG y는 남쪽+라 북+를 뒤집는다)
+function geoToPx(lat, lng, plan) {
+  const g = plan && plan.geo;
+  if (!g || !g.anchors || g.anchors.length < 2) return null;
+  const [A, B] = g.anchors;
+  const M_LAT = 110950;
+  const M_LNG = 111320 * Math.cos((A.ll[0] * Math.PI) / 180);
+  const enu = (la, ln) => ({ x: (ln - A.ll[1]) * M_LNG, y: -(la - A.ll[0]) * M_LAT }); // y남+
+  const e = enu(B.ll[0], B.ll[1]);                           // A→B 실벡터 (지도 좌표계 방향)
+  const p = { x: B.px[0] - A.px[0], y: B.px[1] - A.px[1] };  // A→B 픽셀벡터
+  const den = e.x * e.x + e.y * e.y;
+  if (!den) return null;
+  const s = (p.x * e.x + p.y * e.y) / den;                   // px = k · enu
+  const r = (p.y * e.x - p.x * e.y) / den;
+  const q = enu(lat, lng);
+  return { x: A.px[0] + s * q.x - r * q.y, y: A.px[1] + r * q.x + s * q.y };
+}
+
 // 매장 좌표가 공식 평면도에 정합된(믿을 수 있는) 좌표인지.
 // 매장 자체 정밀좌표 또는 mapped:true 구역의 대표좌표만 정합으로 본다.
 // (그 외 구역 좌표는 임의 배치값이라 평면도 위 위치·거리 비교에 쓰면 안 됨)
