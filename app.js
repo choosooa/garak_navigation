@@ -404,7 +404,9 @@ function setupNavButtons() {
     NAV_MODE = "2d";
     renderMap();
   });
-  window.addEventListener("resize", layout3D);
+  // 창 크기 변경: CSS 기울임 뷰 재배치 + Three.js 캔버스 크기 갱신
+  // (나침반·걸음 이벤트가 없는 노트북에선 다음 렌더 계기가 없어 왜곡이 남기 때문)
+  window.addEventListener("resize", () => { layout3D(); threeRender(); });
 }
 
 // 두 좌표 사이 직선거리(유클리드). 같은 층 가정의 단순 계산.
