@@ -189,6 +189,13 @@ async function init() {
     const pick = parseInt(params.get("pick"));
     if (pick && candidates[pick - 1]) selectStore(candidates[pick - 1].s);
   }
+
+  // 데모·테스트용 가짜 GPS: ?gps=37.4944,127.1157 (1회 주입)
+  const fakeGps = params.get("gps");
+  if (fakeGps) {
+    const [la, ln] = fakeGps.split(",").map(Number);
+    if (Number.isFinite(la) && Number.isFinite(ln)) window.__gps(la, ln);
+  }
 }
 
 // URL 파라미터(?loc=g-b1-west)로 현재 위치를 찾습니다. 없으면 첫 위치로 폴백.
@@ -437,9 +444,54 @@ function enableCompass() {
   }
 }
 
-// ── GPS 위치 추적 (Task 6에서 구현 — 임시 스텁) ────────────
-function enableGPS() {}
-function disableGPS() {}
+// ── GPS 위치 추적 ──────────────────────────────────────────
+// watchPosition 으로 위치를 받아 지오 앵커(geoToPx)로 평면도 픽셀에 사영한다.
+// 실내(지하)는 정확도가 나쁘므로 accuracy 게이트로 거르고, 통과분만 저역 필터로 반영.
+// 층 판단은 GPS 로 불가 — 층은 QR/층탭이 결정하고 GPS 는 x,y 만 움직인다.
+let GPS_WATCH = null;
+const GPS_MAX_ACC = 35;   // m — 이보다 부정확한 픽스는 무시 (지하 폴백)
+
+function enableGPS() {
+  if (GPS_WATCH != null || !TRACKING) return;
+  if (!window.isSecureContext || !("geolocation" in navigator)) return;
+  GPS_WATCH = navigator.geolocation.watchPosition(onGPS, () => { /* 거부·실패 → QR 고정 폴백 */ }, {
+    enableHighAccuracy: true, maximumAge: 2000, timeout: 15000,
+  });
+}
+function disableGPS() {
+  if (GPS_WATCH != null) { navigator.geolocation.clearWatch(GPS_WATCH); GPS_WATCH = null; }
+}
+
+function onGPS(pos) {
+  const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+  if (DEBUG) gpsDebugHud(lat, lng, accuracy);
+  if (!TRACKING || accuracy > GPS_MAX_ACC) return;
+  const plan = planFor(dongOf(currentLoc.building), currentLoc.floor);
+  const p = plan && geoToPx(lat, lng, plan);
+  if (!p) return;                                   // 앵커 없는 층 → QR 고정
+  const nx = Math.max(10, Math.min(plan.w - 10, p.x));
+  const ny = Math.max(10, Math.min(plan.h - 10, p.y));
+  if (!currentLoc._live) currentLoc = { ...currentLoc, _live: true };   // 원본 QR 데이터 보호
+  currentLoc.x = currentLoc.x * 0.6 + nx * 0.4;     // 저역 필터(튐 완화)
+  currentLoc.y = currentLoc.y * 0.6 + ny * 0.4;
+  onPositionChanged();
+}
+
+// 디버그: ?debug=1 이면 원시 GPS 를 화면 좌하단에 표시 (현장 앵커 검증용)
+function gpsDebugHud(lat, lng, acc) {
+  let el = document.getElementById("gpsHud");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "gpsHud";
+    el.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:99;background:rgba(0,0,0,0.65);color:#0f0;font:12px monospace;padding:4px 8px;border-radius:6px;";
+    document.body.appendChild(el);
+  }
+  el.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)} ±${Math.round(acc)}m`;
+}
+
+// 콘솔·데모용 훅: 가짜 GPS 주입 (?gps=위도,경도 또는 __gps(lat,lng))
+window.__gps = (lat, lng, acc = 5) =>
+  onGPS({ coords: { latitude: lat, longitude: lng, accuracy: acc } });
 
 // 위치 변경 후: 지도 재렌더(경로·마커·3D 기준점·행동 지시 갱신 — 도착 판정은 guidance가 담당)
 function onPositionChanged() {
