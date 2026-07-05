@@ -532,6 +532,16 @@ function nextTurn(pts) {
   return { distPx: acc, dir: null };   // 끝까지 직진
 }
 
+// 경로 첫 유효 구간(8px 이상)의 방위각. 없으면 null.
+function firstSegBearing(pts) {
+  for (let i = 1; i < pts.length; i++) {
+    const a = { x: pts[i - 1][0], y: pts[i - 1][1] };
+    const b = { x: pts[i][0], y: pts[i][1] };
+    if (Math.hypot(b.x - a.x, b.y - a.y) >= 8) return bearingTo(a, b);
+  }
+  return null;
+}
+
 function computeGuidance() {
   if (!destStore) return null;
   const curPlan = planFor(dongOf(currentLoc.building), currentLoc.floor);
@@ -555,7 +565,24 @@ function computeGuidance() {
              speak: `에스컬레이터를 타고 ${fl}으로 ${move}.` };
   }
 
-  const t = nextTurn(computeRoutePts(currentLoc, target, curPlan));
+  const pts = computeRoutePts(currentLoc, target, curPlan);
+
+  // 역방향 감지 — 실제 나침반이 있을 때만(폴백 QR 고정값으론 오판 위험).
+  // 경로 첫 구간과 내가 보는 방향이 크게 어긋나면 방향부터 바로잡게 한다.
+  // 히스테리시스(진입 120°/해제 100°)로 경계에서 지시가 튀는 것을 방지.
+  if (USER_HEADING != null) {
+    const first = firstSegBearing(pts);
+    if (first != null) {
+      const diff = Math.abs(((first - activeHeading() + 540) % 360) - 180);
+      const limit = lastGuideKey === "turnback" ? 100 : 120;
+      if (diff > limit) {
+        return { key: "turnback", icon: "↩", text: "반대 방향이에요 — 뒤로 도세요",
+                 speak: "반대 방향이에요. 뒤로 돌아주세요." };
+      }
+    }
+  }
+
+  const t = nextTurn(pts);
   const suffix = sameView ? "" : " (에스컬레이터 방면)";
   if (t.dir && t.distPx < 15) {
     return { key: `soon-${t.dir}`, icon: t.dir === "왼쪽" ? "↰" : "↱",
@@ -792,13 +819,15 @@ function layoutMap() {
   });
 }
 
-// 재렌더 없이 방향 요소만 갱신: 지도 회전(layoutMap) + 헤딩 콘.
+// 재렌더 없이 방향 요소만 갱신: 지도 회전(layoutMap) + 헤딩 콘 + 역방향 지시.
 // 콘은 지도 좌표계에서 +H 회전 → 지도가 -H 돌므로 화면에선 항상 위를 가리킨다.
 function applyHeading() {
+  if (document.getElementById("stepNav").classList.contains("hidden")) return;   // 네비 화면에서만
   const H = activeHeading();
   const cone = document.getElementById("headCone");
   if (cone) cone.setAttribute("transform", `rotate(${H} ${currentLoc.x} ${currentLoc.y})`);
   layoutMap();
+  updateGuidance(false);   // 몸을 돌리면 "뒤로 도세요" 같은 지시도 즉시 갱신
 }
 
 // 헤딩 콘: 현재위치 마커 아래에 깔리는 부채꼴(사용자가 보는 방향).
