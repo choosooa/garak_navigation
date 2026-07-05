@@ -677,20 +677,14 @@ function renderMap() {
 
   svg.innerHTML = inner;
 
-  // 지도 타이틀
-  const title = document.getElementById("mapTitle");
-  if (title) {
-    title.textContent = plan
-      ? `${plan.label} · ${plan.synthetic ? "약식" : "공식"} 안내도`
-      : `${shortBuilding(currentLoc.building)} ${floorLabel(shownFloor)} · 약식 안내도`;
-  }
-
   layoutMap();          // 지도 배치·회전
   applyHeading();       // 헤딩 콘 회전
   updateGuidance(lastGuideKey === null);   // 행동 지시 카드 (안내 시작 직후엔 무발화 — selectStore 인사와 중복 방지)
 }
 
-// 지도 배치 — 전체 지도 단일 모드: 북쪽 고정 + letterbox 중앙 배치.
+// 지도 배치 — 전체 지도 단일 모드: 지도 전체가 보이는 letterbox 중앙 배치.
+// 화면과 지도의 가로·세로 비가 크게 어긋나면(세로 폰 × 가로 평면도) 90° 돌려
+// 훨씬 크게 보여준다. 라벨 글자는 -90° 역회전해 똑바로 유지(.lbl).
 function layoutMap() {
   const stage = document.getElementById("mapStage");
   const svg = document.getElementById("mapSvg");
@@ -699,12 +693,28 @@ function layoutMap() {
   const vbH = plan ? plan.h : 1000;
   const vw = stage.clientWidth, vh = stage.clientHeight;
   if (!vw || !vh) { requestAnimationFrame(layoutMap); return; }   // 숨김 상태면 재시도
-  const f = Math.min(vw / vbW, vh / vbH);   // 지도 전체가 보이는 letterbox 배율
+  const fitN = Math.min(vw / vbW, vh / vbH);   // 그대로 맞출 때 배율
+  const fitR = Math.min(vw / vbH, vh / vbW);   // 90° 돌려 맞출 때 배율
+  const rot = fitR > fitN * 1.2;               // 20% 이상 커질 때만 회전
+  const f = rot ? fitR : fitN;
   svg.style.position = "absolute";
   svg.style.width = vbW * f + "px";
   svg.style.height = vbH * f + "px";
   svg.style.left = (vw - vbW * f) / 2 + "px";
   svg.style.top = (vh - vbH * f) / 2 + "px";
+  // 회전 방향: 기준점(현재위치, 없으면 에스컬레이터)이 화면 아래쪽(하단 오버레이가
+  // 얕은 쪽)에 오도록 — 위쪽은 지시 카드에 가려지기 때문.
+  let deg = 0;
+  if (rot) {
+    const onFloor = viewOf(currentLoc.building, currentLoc.floor) === `${shownDong}|${shownFloor}`;
+    const refX = onFloor ? currentLoc.x : plan && plan.escalator ? plan.escalator[0] : vbW / 2;
+    deg = refX < vbW / 2 ? -90 : 90;
+  }
+  svg.style.transformOrigin = "center";
+  svg.style.transform = deg ? `rotate(${deg}deg)` : "";
+  document.querySelectorAll("#mapSvg .lbl").forEach((el) => {
+    el.setAttribute("transform", deg ? `rotate(${-deg} ${el.dataset.x} ${el.dataset.y})` : "");
+  });
 }
 
 // 재렌더 없이 헤딩 콘(사용자가 보는 방향)만 회전
@@ -838,9 +848,11 @@ function marker(x, y, color, label, glyph, k) {
   return `
     <g>
       <circle cx="${x}" cy="${y}" r="${r}" fill="${color}" stroke="#fff" stroke-width="${Math.max(2, 5 * k)}"/>
-      <text x="${x}" y="${y + fs * 0.36}" font-size="${fs}" fill="#fff" text-anchor="middle" font-weight="700">${glyph}</text>
-      <rect x="${x - lw / 2}" y="${y + r + 4 * k}" width="${lw}" height="${fs * 1.7}" rx="${8 * k}" fill="${color}" opacity="0.95"/>
-      <text x="${x}" y="${y + r + 4 * k + fs * 1.2}" font-size="${fs}" fill="#fff" text-anchor="middle" font-weight="700">${label}</text>
+      <text class="lbl" data-x="${x}" data-y="${y}" x="${x}" y="${y + fs * 0.36}" font-size="${fs}" fill="#fff" text-anchor="middle" font-weight="700">${glyph}</text>
+      <g class="lbl" data-x="${x}" data-y="${y}">
+        <rect x="${x - lw / 2}" y="${y + r + 4 * k}" width="${lw}" height="${fs * 1.7}" rx="${8 * k}" fill="${color}" opacity="0.95"/>
+        <text x="${x}" y="${y + r + 4 * k + fs * 1.2}" font-size="${fs}" fill="#fff" text-anchor="middle" font-weight="700">${label}</text>
+      </g>
     </g>`;
 }
 

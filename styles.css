@@ -196,23 +196,14 @@ main { flex: 1; padding: 12px 14px 2px; }
   white-space: nowrap;
 }
 .back-chip:active { border-color: var(--green); color: var(--green-dark); }
-.nav-chip-row { display: flex; gap: 8px; justify-content: flex-start; }
-.nav-chip-row .back-chip { align-self: auto; }
 
-/* ── 3단계: 네비게이션 (지도 풀블리드 + 오버레이) ── */
+/* ── 3단계: 네비게이션 (상단 지시 카드 / 왼쪽 지도 최대 / 오른쪽 세로 버튼 열) ── */
 /* 네비 화면일 때만 앱 전체를 한 화면에 고정 — 1·2단계 스크롤은 불변 */
 #app:has(#stepNav:not(.hidden)) { height: 100vh; height: 100dvh; min-height: auto; overflow: hidden; }
 #app:has(#stepNav:not(.hidden)) main { padding: 0; display: flex; min-height: 0; }
-#stepNav { flex: 1; position: relative; min-height: 0; }
+#stepNav { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
-/* 상단 오버레이: 행동 지시 카드 + 보기 토글 */
-.nav-overlay-top {
-  position: absolute; top: 0; left: 0; right: 0; z-index: 5;
-  padding: 10px 12px 0;
-  display: flex; flex-direction: column; align-items: stretch; gap: 8px;
-  pointer-events: none;               /* 지도 조작 방해 금지 — 자식만 클릭 가능 */
-}
-.nav-overlay-top > * { pointer-events: auto; }
+.nav-top { padding: 10px 12px 0; }
 .guide-card {
   width: 100%;
   display: flex; align-items: center; gap: 10px;
@@ -240,38 +231,46 @@ main { flex: 1; padding: 12px 14px 2px; }
 }
 .tts-btn.off { opacity: 0.45; filter: grayscale(1); }
 
-/* 하단 오버레이: 층탭 + 큰 버튼 (크림 그라데이션으로 가독성 확보) */
-.nav-overlay-bottom {
-  position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
-  padding: 22px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+/* 지도 + 오른쪽 세로 버튼 열 */
+.nav-body {
+  flex: 1; min-height: 0;
+  display: flex;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)) 12px;
+  gap: 8px;
+}
+.nav-side {
+  flex: none; width: 96px;
   display: flex; flex-direction: column; gap: 8px;
-  background: linear-gradient(transparent, rgba(250, 246, 238, 0.92) 45%);
+  overflow-y: auto;
 }
-.floor-row { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; }
-.floor-label-chip {
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 0.85rem; font-weight: 800; color: var(--green-dark);
-  white-space: nowrap;
+.nav-side .back-chip {
+  align-self: stretch;
+  padding: 8px 6px;
+  font-size: 0.88rem;
+  text-align: center;
+  line-height: 1.2;
 }
-.floor-tabs { display: flex; gap: 6px; }
+/* 층탭 — 세로(위층이 위) */
+.floor-tabs { display: flex; flex-direction: column-reverse; gap: 6px; margin-top: auto; }
 .floor-tabs button {
   border: 2px solid var(--line);
   background: #fff;
-  border-radius: 999px;
-  padding: 6px 13px;
-  font-size: 0.9rem;
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 8px 6px;
+  font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
 }
 .floor-tabs button.active { background: var(--green); border-color: var(--green); color: #fff; }
-/* 지도 스테이지 — 화면 전체가 지도 (배치는 app.js layoutMap 이 인라인으로 적용) */
+/* 지도 스테이지 — 남는 영역 전부 (배치는 app.js layoutMap 이 인라인으로 적용) */
 .map-stage {
-  position: absolute; inset: 0;
+  position: relative;
+  flex: 1; min-width: 0;
   overflow: hidden;
   background: #fdfcf9;
+  border: 1px solid var(--line);
+  border-radius: 14px;
 }
 #mapSvg {
   display: block;
