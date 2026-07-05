@@ -21,7 +21,7 @@ let lastQuery = "";     // 마지막 검색어(가게 선택 화면 문구용)
 let shownDong = null;   // 지도에 표시 중인 동코드(A~G)
 let shownFloor = 1;     // 지도에 표시 중인 층
 
-// 방향 정렬 상태 — 지도는 북쪽 고정, 헤딩 콘만 회전
+// 방향 정렬 상태 — 현재 층에서는 지도가 -heading 회전 (내 정면 = 항상 화면 위)
 let USER_HEADING = null;   // 실시간 나침반 방위(0~360) — 없으면 null(QR 고정값 폴백)
 let COMPASS_ON = false;    // 나침반 리스너 부착 여부(중복 부착 방지)
 let rafPending = false;    // applyHeading rAF 예약 중복 방지
@@ -326,9 +326,6 @@ function selectStore(store) {
   const xy = storeXY(store);
   const sameView = viewOf(store.building, store.floor) === viewOf(currentLoc.building, currentLoc.floor);
 
-  // 지시 카드 목적지 줄 (세부 주소는 표시하지 않음 — 지도가 위치를 보여준다)
-  document.getElementById("navDestName").textContent = `${store.name}까지`;
-
   // 위치 추적 준비: 사용자 제스처(카드 탭) 안에서 GPS 권한 확보 + 지시 상태 초기화
   lastGuideKey = null;
   enableGPS();
@@ -469,6 +466,8 @@ function onGPS(pos) {
   const plan = planFor(dongOf(currentLoc.building), currentLoc.floor);
   const p = plan && geoToPx(lat, lng, plan);
   if (!p) return;                                   // 앵커 없는 층 → QR 고정
+  // 평면도 범위 밖(몰 밖·원거리) 픽스는 무시 — 모서리에 강제로 붙이면 위치가 튄다
+  if (p.x < -30 || p.x > plan.w + 30 || p.y < -30 || p.y > plan.h + 30) return;
   const nx = Math.max(10, Math.min(plan.w - 10, p.x));
   const ny = Math.max(10, Math.min(plan.h - 10, p.y));
   if (!currentLoc._live) currentLoc = { ...currentLoc, _live: true };   // 원본 QR 데이터 보호
@@ -568,12 +567,11 @@ function computeGuidance() {
            speak: "화살표 방향으로 직진하세요." };
 }
 
-// 지시 카드 갱신. silent=true 면 TTS 없이 상태만 맞춘다 (안내 시작 직후 중복 발화 방지).
+// 행동 지시 갱신 — 화면 카드 없이 음성(TTS)으로만 안내한다.
+// silent=true 면 상태만 맞춘다 (안내 시작 직후 중복 발화 방지).
 function updateGuidance(silent) {
   const g = computeGuidance();
   if (!g) return;
-  document.getElementById("guideIcon").textContent = g.icon;
-  document.getElementById("guideText").textContent = g.text;
   if (g.key !== lastGuideKey) {
     if (!silent && g.speak) speak(g.speak);
     lastGuideKey = g.key;
@@ -625,7 +623,7 @@ function renderFloorTabs() {
 
 // ── 지도(SVG) 그리기 ───────────────────────────────────────
 // 공식 평면도 PNG를 배경으로 깔고 현재 위치/목적지 마커 + 통로 경로를 그린다.
-// 지도는 북쪽 고정. 헤딩 콘(현재위치 부채꼴)만 사용자 방향으로 회전한다
+// 현재 위치 층에서는 지도가 -heading 회전(내 정면=화면 위, 헤딩 콘은 화면 기준 고정)
 // (전체 재렌더는 층 전환·새 목적지 때만, 나침반 갱신은 applyHeading 이 transform 만 변경).
 function renderMap() {
   const svg = document.getElementById("mapSvg");
@@ -682,9 +680,12 @@ function renderMap() {
   updateGuidance(lastGuideKey === null);   // 행동 지시 카드 (안내 시작 직후엔 무발화 — selectStore 인사와 중복 방지)
 }
 
-// 지도 배치 — 전체 지도 단일 모드: 지도 전체가 보이는 letterbox 중앙 배치.
-// 화면과 지도의 가로·세로 비가 크게 어긋나면(세로 폰 × 가로 평면도) 90° 돌려
-// 훨씬 크게 보여준다. 라벨 글자는 -90° 역회전해 똑바로 유지(.lbl).
+// 차량 내비식 지도 배치.
+// 현재 위치 층: 내 위치를 화면 하단 중앙에 고정·확대(잘림 허용)하고 지도를 -heading 회전
+//   — 내가 돌면 지도가 반대로 돌아 내 정면이 항상 화면 위 (내 시선은 화면에 고정).
+// 다른 층 열람: 전체가 보이는 letterbox. 화면·지도 비율이 크게 어긋나면 90° 돌려 크게.
+// 어느 모드든 마커 라벨(.lbl)은 역회전해 글자를 똑바로 유지한다.
+const FOLLOW_SCALE = 1.35;   // 현재 층 확대 배율 하한 — 평면도 글씨가 읽히는 크기
 function layoutMap() {
   const stage = document.getElementById("mapStage");
   const svg = document.getElementById("mapSvg");
@@ -693,35 +694,47 @@ function layoutMap() {
   const vbH = plan ? plan.h : 1000;
   const vw = stage.clientWidth, vh = stage.clientHeight;
   if (!vw || !vh) { requestAnimationFrame(layoutMap); return; }   // 숨김 상태면 재시도
-  const fitN = Math.min(vw / vbW, vh / vbH);   // 그대로 맞출 때 배율
-  const fitR = Math.min(vw / vbH, vh / vbW);   // 90° 돌려 맞출 때 배율
-  const rot = fitR > fitN * 1.2;               // 20% 이상 커질 때만 회전
-  const f = rot ? fitR : fitN;
+  const fitN = Math.min(vw / vbW, vh / vbH);   // 전체가 보이는 letterbox 배율
+  const onFloor = viewOf(currentLoc.building, currentLoc.floor) === `${shownDong}|${shownFloor}`;
   svg.style.position = "absolute";
-  svg.style.width = vbW * f + "px";
-  svg.style.height = vbH * f + "px";
-  svg.style.left = (vw - vbW * f) / 2 + "px";
-  svg.style.top = (vh - vbH * f) / 2 + "px";
-  // 회전 방향: 기준점(현재위치, 없으면 에스컬레이터)이 화면 아래쪽(하단 오버레이가
-  // 얕은 쪽)에 오도록 — 위쪽은 지시 카드에 가려지기 때문.
-  let deg = 0;
-  if (rot) {
-    const onFloor = viewOf(currentLoc.building, currentLoc.floor) === `${shownDong}|${shownFloor}`;
-    const refX = onFloor ? currentLoc.x : plan && plan.escalator ? plan.escalator[0] : vbW / 2;
-    deg = refX < vbW / 2 ? -90 : 90;
+
+  let deg;   // 지도의 화면 회전각
+  if (onFloor) {
+    const f = Math.max(fitN, FOLLOW_SCALE);
+    svg.style.width = vbW * f + "px";
+    svg.style.height = vbH * f + "px";
+    const px = currentLoc.x * f, py = currentLoc.y * f;
+    const ax = vw / 2, ay = vh * 0.62;   // 내 위치 고정점(하단 중앙쪽 — 진행 방향이 넓게 보이게)
+    svg.style.left = ax - px + "px";
+    svg.style.top = ay - py + "px";
+    svg.style.transformOrigin = `${px}px ${py}px`;
+    deg = -activeHeading();
+  } else {
+    const fitR = Math.min(vw / vbH, vh / vbW);   // 90° 돌려 맞출 때 배율
+    const rot = fitR > fitN * 1.2;               // 20% 이상 커질 때만 회전
+    const f = rot ? fitR : fitN;
+    svg.style.width = vbW * f + "px";
+    svg.style.height = vbH * f + "px";
+    svg.style.left = (vw - vbW * f) / 2 + "px";
+    svg.style.top = (vh - vbH * f) / 2 + "px";
+    svg.style.transformOrigin = "center";
+    // 기준점(에스컬레이터 = 이 층 경로의 출발점)이 화면 아래쪽에 오는 방향으로
+    const refX = plan && plan.escalator ? plan.escalator[0] : vbW / 2;
+    deg = rot ? (refX < vbW / 2 ? -90 : 90) : 0;
   }
-  svg.style.transformOrigin = "center";
   svg.style.transform = deg ? `rotate(${deg}deg)` : "";
   document.querySelectorAll("#mapSvg .lbl").forEach((el) => {
     el.setAttribute("transform", deg ? `rotate(${-deg} ${el.dataset.x} ${el.dataset.y})` : "");
   });
 }
 
-// 재렌더 없이 헤딩 콘(사용자가 보는 방향)만 회전
+// 재렌더 없이 방향 요소만 갱신: 지도 회전(layoutMap) + 헤딩 콘.
+// 콘은 지도 좌표계에서 +H 회전 → 지도가 -H 돌므로 화면에선 항상 위를 가리킨다.
 function applyHeading() {
   const H = activeHeading();
   const cone = document.getElementById("headCone");
   if (cone) cone.setAttribute("transform", `rotate(${H} ${currentLoc.x} ${currentLoc.y})`);
+  layoutMap();
 }
 
 // 헤딩 콘: 현재위치 마커 아래에 깔리는 부채꼴(사용자가 보는 방향).

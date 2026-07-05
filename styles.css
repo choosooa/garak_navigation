@@ -197,84 +197,64 @@ main { flex: 1; padding: 12px 14px 2px; }
 }
 .back-chip:active { border-color: var(--green); color: var(--green-dark); }
 
-/* ── 3단계: 네비게이션 (상단 지시 카드 / 왼쪽 지도 최대 / 오른쪽 세로 버튼 열) ── */
-/* 네비 화면일 때만 앱 전체를 한 화면에 고정 — 1·2단계 스크롤은 불변 */
+/* ── 3단계: 네비게이션 (지도 전체 화면 + 오버레이 버튼) ── */
+/* 네비 화면일 때만 앱 전체를 한 화면에 고정하고 헤더·푸터 숨김 — 1·2단계 불변 */
 #app:has(#stepNav:not(.hidden)) { height: 100vh; height: 100dvh; min-height: auto; overflow: hidden; }
 #app:has(#stepNav:not(.hidden)) main { padding: 0; display: flex; min-height: 0; }
-#stepNav { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+#app:has(#stepNav:not(.hidden)) .app-header,
+#app:has(#stepNav:not(.hidden)) .app-footer { display: none; }
+#stepNav { flex: 1; position: relative; min-height: 0; }
 
-.nav-top { padding: 10px 12px 0; }
-.guide-card {
-  width: 100%;
-  display: flex; align-items: center; gap: 10px;
-  background: rgba(255, 255, 255, 0.94);
-  border: 2px solid var(--line);
-  border-radius: 16px;
-  padding: 10px 12px;
-  box-shadow: var(--card-shadow);
-}
-.guide-icon { flex: none; font-size: 1.9rem; line-height: 1; font-weight: 800; color: var(--green-dark); }
-.guide-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.guide-dest {
-  font-size: 0.82rem; font-weight: 700; color: #6a756d;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-#guideText { font-size: 1.25rem; line-height: 1.25; color: var(--ink); word-break: keep-all; }
-.tts-btn {
-  flex: none;
-  width: 44px; height: 44px;
-  border: 2px solid var(--line);
-  border-radius: 50%;
-  background: var(--cream);
-  font-size: 1.4rem;
-  cursor: pointer;
-}
-.tts-btn.off { opacity: 0.45; filter: grayscale(1); }
-
-/* 지도 + 오른쪽 세로 버튼 열 */
-.nav-body {
-  flex: 1; min-height: 0;
-  display: flex;
-  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)) 12px;
-  gap: 8px;
-}
-.nav-side {
-  flex: none; width: 96px;
-  display: flex; flex-direction: column; gap: 8px;
-  overflow-y: auto;
-}
-.nav-side .back-chip {
-  align-self: stretch;
-  padding: 8px 6px;
-  font-size: 0.88rem;
-  text-align: center;
-  line-height: 1.2;
-}
-/* 층탭 — 세로(위층이 위) */
-.floor-tabs { display: flex; flex-direction: column-reverse; gap: 6px; margin-top: auto; }
-.floor-tabs button {
-  border: 2px solid var(--line);
-  background: #fff;
-  border-radius: 12px;
-  min-height: 44px;
-  padding: 8px 6px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-.floor-tabs button.active { background: var(--green); border-color: var(--green); color: #fff; }
-/* 지도 스테이지 — 남는 영역 전부 (배치는 app.js layoutMap 이 인라인으로 적용) */
+/* 지도 스테이지 — 화면 전체 (배치·회전은 app.js layoutMap 이 인라인으로 적용) */
 .map-stage {
-  position: relative;
-  flex: 1; min-width: 0;
+  position: absolute; inset: 0;
   overflow: hidden;
   background: #fdfcf9;
-  border: 1px solid var(--line);
-  border-radius: 14px;
 }
 #mapSvg {
   display: block;
+  transition: transform 0.18s linear, left 0.18s linear, top 0.18s linear;  /* 나침반·GPS 갱신 부드럽게 */
+  will-change: transform;
 }
+
+/* 오버레이 버튼: 좌상단 뒤로/처음, 우상단 토글, 하단 중앙 층탭 */
+.nav-overlay-tl {
+  position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); left: 10px; z-index: 5;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+}
+.nav-overlay-tl .back-chip { padding: 8px 12px; font-size: 0.9rem; }
+.nav-overlay-tr {
+  position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; z-index: 5;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.tts-btn {
+  width: 46px; height: 46px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  font-size: 1.4rem;
+  cursor: pointer;
+  box-shadow: var(--card-shadow);
+}
+.tts-btn.off { opacity: 0.45; filter: grayscale(1); }
+.nav-overlay-bc {
+  position: absolute; left: 0; right: 0; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 5;
+  display: flex; justify-content: center;
+  pointer-events: none;
+}
+.floor-tabs { display: flex; gap: 6px; pointer-events: auto; }
+.floor-tabs button {
+  border: 2px solid var(--line);
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--card-shadow);
+}
+.floor-tabs button.active { background: var(--green); border-color: var(--green); color: #fff; }
 
 /* ── 공통 ─────────────────────────────── */
 .hidden { display: none !important; }

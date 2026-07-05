@@ -7,7 +7,7 @@
   <!-- 모바일 세로 화면 우선 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>가락몰 길찾기</title>
-  <link rel="stylesheet" href="styles.css?v=16" />
+  <link rel="stylesheet" href="styles.css?v=17" />
 </head>
 <body>
   <div id="app">
@@ -57,30 +57,22 @@
       </section>
 
       <!-- ═══ 3단계: 네비게이션 ═══ -->
-      <!-- 상단 지시 카드 / 왼쪽 지도(최대) / 오른쪽 세로 버튼 열(가게선택·처음·층탭) -->
+      <!-- 지도가 화면 전체. 버튼은 전부 지도 위 오버레이 (안내는 음성 TTS 담당) -->
       <section id="stepNav" class="step-view hidden">
-        <div class="nav-top">
-          <div class="guide-card">
-            <span class="guide-icon" id="guideIcon">⬆</span>
-            <div class="guide-text">
-              <span class="guide-dest" id="navDestName">-</span>
-              <strong id="guideText">안내를 시작합니다</strong>
-            </div>
-            <button id="trackBtn" class="tts-btn" type="button" aria-label="위치 따라가기 켜기/끄기">📍</button>
-            <button id="ttsBtn" class="tts-btn" type="button" aria-label="음성 안내 켜기/끄기">🔊</button>
-          </div>
+        <div class="map-stage" id="mapStage">
+          <svg id="mapSvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"
+               xmlns="http://www.w3.org/2000/svg" role="img" aria-label="가락몰 평면도"></svg>
         </div>
-
-        <div class="nav-body">
-          <div class="map-stage" id="mapStage">
-            <svg id="mapSvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"
-                 xmlns="http://www.w3.org/2000/svg" role="img" aria-label="가락몰 평면도"></svg>
-          </div>
-          <aside class="nav-side">
-            <button id="backToSelect" class="back-chip" type="button">← 다른<br />가게</button>
-            <button id="restartBtn" class="back-chip" type="button">🏠 처음</button>
-            <div id="floorTabs" class="floor-tabs"></div>
-          </aside>
+        <div class="nav-overlay-tl">
+          <button id="backToSelect" class="back-chip" type="button">← 다른 가게</button>
+          <button id="restartBtn" class="back-chip" type="button">🏠 처음</button>
+        </div>
+        <div class="nav-overlay-tr">
+          <button id="trackBtn" class="tts-btn" type="button" aria-label="위치 따라가기 켜기/끄기">📍</button>
+          <button id="ttsBtn" class="tts-btn" type="button" aria-label="음성 안내 켜기/끄기">🔊</button>
+        </div>
+        <div class="nav-overlay-bc">
+          <div id="floorTabs" class="floor-tabs"></div>
         </div>
       </section>
     </main>
@@ -90,6 +82,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=17"></script>
 </body>
 </html>
