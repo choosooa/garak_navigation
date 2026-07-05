@@ -213,7 +213,9 @@ main { flex: 1; padding: 12px 14px 2px; }
 }
 #mapSvg {
   display: block;
-  transition: transform 0.18s linear, left 0.18s linear, top 0.18s linear;  /* 나침반·GPS 갱신 부드럽게 */
+  /* 회전(transform)은 transition 없이 즉시 — 헤딩 콘과 지도가 어긋나 보이지 않게.
+     회전 부드러움은 app.js의 나침반 저역 필터가 담당. GPS 이동(left/top)만 보간. */
+  transition: left 0.18s linear, top 0.18s linear;
   will-change: transform;
 }
 

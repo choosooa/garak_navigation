@@ -718,8 +718,11 @@ function renderMap() {
     inner += routeVia(currentLoc, destXY, plan, k);
   } else if (destXY && onFloorCurrent && !onFloorDest && esc) {
     // 층간 1단계: 현재위치 → 에스컬레이터
+    // (QR이 에스컬레이터 바로 앞이면 마커·라벨이 현재위치와 겹치므로 생략)
     inner += routeVia(currentLoc, esc, plan, k);
-    inner += marker(esc.x, esc.y, "#7b5cc4", "에스컬레이터", "🛗", k);
+    if (dist(currentLoc, esc) > arriveR(plan) * 0.8) {
+      inner += marker(esc.x, esc.y, "#7b5cc4", "에스컬레이터", "🛗", k);
+    }
   } else if (destXY && !onFloorCurrent && onFloorDest && esc) {
     // 층간 2단계: 에스컬레이터 → 목적지
     inner += routeVia(esc, destXY, plan, k);
