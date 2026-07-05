@@ -226,7 +226,8 @@ function renderCategoryButtons() {
 
 // ── 2단계: 후보 검색 → 가게 선택 목록 ──────────────────────
 // 입력어 → 취급 매장 필터 → 정렬(같은 층 → 정합 좌표 → 거리) → 상위 CANDIDATE_MAX곳 표시
-function handleQuery(query) {
+// quiet=true 면 TTS 없이 목록만 갱신 (네비에서 "다른 가게"로 되돌아올 때 재정렬용)
+function handleQuery(query, quiet) {
   const q = String(query).trim();
   if (!q) return;
 
@@ -267,7 +268,7 @@ function handleQuery(query) {
   candidates = located.slice(0, CANDIDATE_MAX);
   renderStoreList(matches.length);
   goStep("select");
-  speak(`${q} 파는 가게 ${matches.length}곳을 찾았어요. 갈 가게를 골라주세요.`);
+  if (!quiet) speak(`${q} 파는 가게 ${matches.length}곳을 찾았어요. 갈 가게를 골라주세요.`);
 }
 
 // 입력 화면 안의 안내 문구(검색 실패 등)
@@ -356,7 +357,9 @@ function setupNavButtons() {
   });
   document.getElementById("backToSelect").addEventListener("click", () => {
     destStore = null;
-    goStep("select");
+    // 층 전환 등으로 현재 위치가 바뀌었을 수 있으니 같은 검색어로 재정렬 (무발화)
+    if (lastQuery) handleQuery(lastQuery, true);
+    else goStep("select");
   });
   document.getElementById("restartBtn").addEventListener("click", () => {
     destStore = null;
@@ -560,9 +563,15 @@ function computeGuidance() {
   }
   if (!sameView && remain < arriveR(curPlan) * 0.8) {
     const fl = floorLabel(destStore.floor);
-    const move = destStore.floor > currentLoc.floor ? "올라가세요" : "내려가세요";
-    return { key: "esc-arrive", icon: "🛗", text: `에스컬레이터를 타고 ${fl}으로`,
-             speak: `에스컬레이터를 타고 ${fl}으로 ${move}.` };
+    if (dongOf(destStore.building) === dongOf(currentLoc.building)) {
+      const move = destStore.floor > currentLoc.floor ? "올라가세요" : "내려가세요";
+      return { key: "esc-arrive", icon: "🛗", text: `에스컬레이터를 타고 ${fl}으로`,
+               speak: `에스컬레이터를 타고 ${fl}으로 ${move}.` };
+    }
+    // 다른 건물(동): 에스컬레이터가 아니라 건물 이동 안내
+    const bld = shortBuilding(destStore.building);
+    return { key: "esc-arrive", icon: "🚶", text: `${bld} ${fl}으로 이동하세요`,
+             speak: `${bld} ${fl}으로 이동하세요.` };
   }
 
   const pts = computeRoutePts(currentLoc, target, curPlan);
@@ -622,8 +631,12 @@ function updateFloorGoBtn(g) {
     viewOf(destStore.building, destStore.floor) !== viewOf(currentLoc.building, currentLoc.floor);
   if (cross) {
     const fl = floorLabel(destStore.floor);
-    const dir = destStore.floor > currentLoc.floor ? "올라가서" : "내려가서";
-    btn.innerHTML = `🛗 에스컬레이터로 ${dir} <b>${fl} 도착하면 누르세요</b>`;
+    if (dongOf(destStore.building) === dongOf(currentLoc.building)) {
+      const dir = destStore.floor > currentLoc.floor ? "올라가서" : "내려가서";
+      btn.innerHTML = `🛗 에스컬레이터로 ${dir} <b>${fl} 도착하면 누르세요</b>`;
+    } else {
+      btn.innerHTML = `🚶 <b>${shortBuilding(destStore.building)} ${fl}</b>에 도착하면 누르세요`;
+    }
     btn.dataset.mode = "floor";
     btn.classList.remove("hidden");
   } else if (g && g.key === "arrive") {
@@ -650,6 +663,9 @@ function arriveOnDestFloor() {
     y: esc ? esc[1] : fallback.y,
     name: "에스컬레이터",
   };
+  // 나침반 없는 환경 대비: 2구간 진행 방향을 기본 정면으로 (나침반이 있으면 무시됨)
+  const secondLeg = firstSegBearing(computeRoutePts(currentLoc, storeXY(destStore), plan));
+  if (secondLeg != null) currentLoc.heading = secondLeg;
   shownDong = dong;
   shownFloor = destStore.floor;
   lastGuideKey = null;   // 새 층 지시를 새로 발화
@@ -714,6 +730,7 @@ function renderFloorTabs() {
 // 현재 위치 층에서는 지도가 -heading 회전(내 정면=화면 위, 헤딩 콘은 화면 기준 고정)
 // (전체 재렌더는 층 전환·새 목적지 때만, 나침반 갱신은 applyHeading 이 transform 만 변경).
 function renderMap() {
+  if (document.getElementById("stepNav").classList.contains("hidden")) return;   // 네비 화면에서만
   const svg = document.getElementById("mapSvg");
   const plan = planFor(shownDong, shownFloor);
   const vbW = plan ? plan.w : 1000;
@@ -778,6 +795,7 @@ function renderMap() {
 // 어느 모드든 마커 라벨(.lbl)은 역회전해 글자를 똑바로 유지한다.
 const FOLLOW_SCALE = 1.35;   // 현재 층 확대 배율 하한 — 평면도 글씨가 읽히는 크기
 function layoutMap() {
+  if (document.getElementById("stepNav").classList.contains("hidden")) return;   // 숨김 중 rAF 루프 방지
   const stage = document.getElementById("mapStage");
   const svg = document.getElementById("mapSvg");
   const plan = planFor(shownDong, shownFloor);
@@ -980,8 +998,6 @@ function debugGrid(w, h) {
 function setupVoice() {
   const btn = document.getElementById("voiceBtn");
   const statusEl = document.getElementById("voiceStatus");
-
-  const micLabel = document.querySelector(".mic-label");
 
   // 보안 컨텍스트 확인: 음성인식은 HTTPS(또는 localhost)에서만 동작.
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;

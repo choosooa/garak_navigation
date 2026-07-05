@@ -219,10 +219,13 @@ main { flex: 1; padding: 12px 14px 2px; }
   will-change: transform;
 }
 
-/* 상단 안내 바: 지금 할 일 한 줄 (예: 직진 20m 후 오른쪽) */
-.nav-overlay-tc {
+/* 상단 오버레이: 안내 바 + 아래 행(좌 칩 열 · 우 토글 열) — 플로우 배치라 겹침 없음 */
+.nav-overlay-top {
   position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); left: 10px; right: 10px; z-index: 6;
+  display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;               /* 지도 조작 방해 금지 — 버튼만 클릭 가능 */
 }
+.nav-overlay-top button { pointer-events: auto; }
 .guide-pill {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   background: rgba(255, 255, 255, 0.95);
@@ -234,17 +237,10 @@ main { flex: 1; padding: 12px 14px 2px; }
 }
 #guideIcon { font-size: 1.5rem; line-height: 1; font-weight: 800; color: var(--green-dark); }
 #guideText { font-size: 1.1rem; font-weight: 800; color: var(--ink); word-break: keep-all; text-align: center; }
-
-/* 오버레이 버튼: 좌상단 뒤로/처음, 우상단 토글, 하단 중앙 큰 버튼+층탭 */
-.nav-overlay-tl {
-  position: absolute; top: calc(72px + env(safe-area-inset-top, 0px)); left: 10px; z-index: 5;
-  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
-}
-.nav-overlay-tl .back-chip { padding: 8px 12px; font-size: 0.9rem; }
-.nav-overlay-tr {
-  position: absolute; top: calc(72px + env(safe-area-inset-top, 0px)); right: 10px; z-index: 5;
-  display: flex; flex-direction: column; gap: 8px;
-}
+.nav-top-row { display: flex; justify-content: space-between; align-items: flex-start; }
+.nav-chip-col { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.nav-chip-col .back-chip { padding: 8px 12px; font-size: 0.9rem; }
+.nav-toggle-col { display: flex; flex-direction: column; gap: 8px; }
 .tts-btn {
   width: 46px; height: 46px;
   border: 2px solid var(--line);
