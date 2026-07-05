@@ -84,8 +84,8 @@ main { flex: 1; padding: 12px 14px 2px; }
   text-align: center;
 }
 .mic-btn {
-  /* 화면 폭 74% vs 남는 높이 기반 상한 중 작은 쪽 — 어떤 폰에서도 스크롤 없이 최대 */
-  width: clamp(150px, min(74vw, calc(100dvh - 420px)), 360px);
+  /* 화면 폭 68% vs 남는 높이 기반 상한 중 작은 쪽 — 어떤 폰에서도 스크롤 없이 최대 */
+  width: clamp(150px, min(68vw, calc(100dvh - 420px)), 340px);
   aspect-ratio: 1 / 1;
   border: none; border-radius: 50%;
   background: radial-gradient(circle at 32% 28%, #2c9450, var(--green) 62%);
