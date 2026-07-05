@@ -364,6 +364,12 @@ function setupNavButtons() {
     document.getElementById("voiceStatus").textContent = "";
     goStep("input");
   });
+  // 층간 이동/안내 종료 큰 버튼
+  const floorGoBtn = document.getElementById("floorGoBtn");
+  floorGoBtn.addEventListener("click", () => {
+    if (floorGoBtn.dataset.mode === "floor") arriveOnDestFloor();
+    else document.getElementById("restartBtn").click();
+  });
   // 위치 따라가기(GPS) 토글 (미지원·거부 환경은 QR 고정 위치로 자연 폴백)
   const trackBtn = document.getElementById("trackBtn");
   trackBtn.addEventListener("click", () => {
@@ -567,15 +573,70 @@ function computeGuidance() {
            speak: "화살표 방향으로 직진하세요." };
 }
 
-// 행동 지시 갱신 — 화면 카드 없이 음성(TTS)으로만 안내한다.
-// silent=true 면 상태만 맞춘다 (안내 시작 직후 중복 발화 방지).
+// 행동 지시 갱신 — 상단 안내 바(한 줄) + 음성(TTS).
+// silent=true 면 발화 없이 상태만 맞춘다 (안내 시작 직후 중복 발화 방지).
 function updateGuidance(silent) {
   const g = computeGuidance();
   if (!g) return;
+  document.getElementById("guideIcon").textContent = g.icon;
+  document.getElementById("guideText").textContent = g.text;
+  updateFloorGoBtn(g);
   if (g.key !== lastGuideKey) {
     if (!silent && g.speak) speak(g.speak);
     lastGuideKey = g.key;
   }
+}
+
+// 하단 큰 버튼: 층간 안내 중엔 "○층에 도착하면 누르세요", 도착하면 "안내 마치기".
+// (에스컬레이터를 탄 걸 앱이 알 수 없으므로 방문객이 직접 눌러 층 전환을 알린다)
+function updateFloorGoBtn(g) {
+  const btn = document.getElementById("floorGoBtn");
+  const cross = destStore &&
+    viewOf(destStore.building, destStore.floor) !== viewOf(currentLoc.building, currentLoc.floor);
+  if (cross) {
+    const fl = floorLabel(destStore.floor);
+    const dir = destStore.floor > currentLoc.floor ? "올라가서" : "내려가서";
+    btn.innerHTML = `🛗 에스컬레이터로 ${dir} <b>${fl} 도착하면 누르세요</b>`;
+    btn.dataset.mode = "floor";
+    btn.classList.remove("hidden");
+  } else if (g && g.key === "arrive") {
+    btn.innerHTML = `🏠 안내 마치기`;
+    btn.dataset.mode = "done";
+    btn.classList.remove("hidden");
+  } else {
+    btn.classList.add("hidden");
+  }
+}
+
+// 층 전환: 방문객이 도착 층 버튼을 누르면 현재 위치를 그 층 에스컬레이터로 옮기고
+// 화면을 전환해 두 번째 구간(에스컬레이터 → 매장) 안내를 이어간다.
+function arriveOnDestFloor() {
+  if (!destStore) return;
+  const dong = dongOf(destStore.building);
+  const plan = planFor(dong, destStore.floor);
+  const esc = plan && plan.escalator;
+  const fallback = storeXY(destStore) || { x: 500, y: 500 };
+  currentLoc = {
+    ...currentLoc, _live: true,
+    building: destStore.building, floor: destStore.floor,
+    x: esc ? esc[0] : fallback.x,
+    y: esc ? esc[1] : fallback.y,
+    name: "에스컬레이터",
+  };
+  shownDong = dong;
+  shownFloor = destStore.floor;
+  lastGuideKey = null;   // 새 층 지시를 새로 발화
+  const locNameEl = document.getElementById("currentLocName");
+  if (locNameEl) {
+    locNameEl.textContent = `${shortBuilding(currentLoc.building)} ${floorLabel(currentLoc.floor)} · 에스컬레이터 앞`;
+  }
+  const stage = document.getElementById("mapStage");
+  stage.classList.remove("floor-flash");
+  void stage.offsetWidth;               // 애니메이션 재시작 트릭
+  stage.classList.add("floor-flash");
+  renderFloorTabs();
+  renderMap();
+  speak(`${floorLabel(destStore.floor)}입니다. 화살표 방향으로 ${destStore.name}까지 이동하세요.`);
 }
 
 // 방향 이벤트 → heading 산출 → 필터 → rAF로 applyHeading 1회 예약.

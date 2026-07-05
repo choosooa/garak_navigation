@@ -7,7 +7,7 @@
   <!-- 모바일 세로 화면 우선 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>가락몰 길찾기</title>
-  <link rel="stylesheet" href="styles.css?v=17" />
+  <link rel="stylesheet" href="styles.css?v=18" />
 </head>
 <body>
   <div id="app">
@@ -57,11 +57,18 @@
       </section>
 
       <!-- ═══ 3단계: 네비게이션 ═══ -->
-      <!-- 지도가 화면 전체. 버튼은 전부 지도 위 오버레이 (안내는 음성 TTS 담당) -->
+      <!-- 지도가 화면 전체. 안내 바·버튼은 지도 위 오버레이 (음성 TTS 병행) -->
       <section id="stepNav" class="step-view hidden">
         <div class="map-stage" id="mapStage">
           <svg id="mapSvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"
                xmlns="http://www.w3.org/2000/svg" role="img" aria-label="가락몰 평면도"></svg>
+        </div>
+        <!-- 상단 안내 바: 지금 할 일 한 줄 -->
+        <div class="nav-overlay-tc">
+          <div class="guide-pill">
+            <span id="guideIcon">⬆</span>
+            <span id="guideText">안내를 시작합니다</span>
+          </div>
         </div>
         <div class="nav-overlay-tl">
           <button id="backToSelect" class="back-chip" type="button">← 다른 가게</button>
@@ -71,7 +78,9 @@
           <button id="trackBtn" class="tts-btn" type="button" aria-label="위치 따라가기 켜기/끄기">📍</button>
           <button id="ttsBtn" class="tts-btn" type="button" aria-label="음성 안내 켜기/끄기">🔊</button>
         </div>
+        <!-- 하단: 층간 이동/안내 종료 큰 버튼 + 층탭 -->
         <div class="nav-overlay-bc">
+          <button id="floorGoBtn" class="floor-go-btn hidden" type="button"></button>
           <div id="floorTabs" class="floor-tabs"></div>
         </div>
       </section>
@@ -82,6 +91,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=17"></script>
+  <script src="app.js?v=18"></script>
 </body>
 </html>

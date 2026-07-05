@@ -217,14 +217,30 @@ main { flex: 1; padding: 12px 14px 2px; }
   will-change: transform;
 }
 
-/* 오버레이 버튼: 좌상단 뒤로/처음, 우상단 토글, 하단 중앙 층탭 */
+/* 상단 안내 바: 지금 할 일 한 줄 (예: 직진 20m 후 오른쪽) */
+.nav-overlay-tc {
+  position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); left: 10px; right: 10px; z-index: 6;
+}
+.guide-pill {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  min-height: 52px;
+  padding: 8px 16px;
+  box-shadow: var(--card-shadow);
+}
+#guideIcon { font-size: 1.5rem; line-height: 1; font-weight: 800; color: var(--green-dark); }
+#guideText { font-size: 1.1rem; font-weight: 800; color: var(--ink); word-break: keep-all; text-align: center; }
+
+/* 오버레이 버튼: 좌상단 뒤로/처음, 우상단 토글, 하단 중앙 큰 버튼+층탭 */
 .nav-overlay-tl {
-  position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); left: 10px; z-index: 5;
+  position: absolute; top: calc(72px + env(safe-area-inset-top, 0px)); left: 10px; z-index: 5;
   display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
 }
 .nav-overlay-tl .back-chip { padding: 8px 12px; font-size: 0.9rem; }
 .nav-overlay-tr {
-  position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; z-index: 5;
+  position: absolute; top: calc(72px + env(safe-area-inset-top, 0px)); right: 10px; z-index: 5;
   display: flex; flex-direction: column; gap: 8px;
 }
 .tts-btn {
@@ -238,10 +254,31 @@ main { flex: 1; padding: 12px 14px 2px; }
 }
 .tts-btn.off { opacity: 0.45; filter: grayscale(1); }
 .nav-overlay-bc {
-  position: absolute; left: 0; right: 0; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 5;
-  display: flex; justify-content: center;
+  position: absolute; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 5;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
   pointer-events: none;
 }
+/* 층간 이동/안내 종료 큰 버튼 — 5060 배려 큰 터치·큰 글씨 */
+.floor-go-btn {
+  pointer-events: auto;
+  width: 100%; max-width: 420px;
+  min-height: 58px;
+  border: none; border-radius: 16px;
+  background: var(--green);
+  color: #fff;
+  font-size: 1.1rem; font-weight: 800;
+  box-shadow: 0 6px 16px rgba(30, 122, 60, 0.4);
+  cursor: pointer;
+  animation: btnBreath 1.6s ease-in-out infinite;
+}
+.floor-go-btn:active { transform: scale(0.97); }
+@keyframes btnBreath {
+  0%, 100% { box-shadow: 0 6px 16px rgba(30, 122, 60, 0.4); }
+  50% { box-shadow: 0 6px 24px rgba(30, 122, 60, 0.65); }
+}
+/* 층 전환 시 짧은 페이드 (화면이 넘어가는 느낌) */
+.floor-flash { animation: floorFade 0.45s ease; }
+@keyframes floorFade { from { opacity: 0.1; } to { opacity: 1; } }
 .floor-tabs { display: flex; gap: 6px; pointer-events: auto; }
 .floor-tabs button {
   border: 2px solid var(--line);
