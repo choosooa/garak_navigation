@@ -14,7 +14,8 @@ let LOCATIONS = [];     // QR 위치 목록
 let ZONE_BY_KEY = {};   // 구역 대표좌표 맵: "building|floor" → {x,y,mapped}
 let PLANS = [];         // 평면도 인덱스 (floorplans/index.json)
 let PLAN_BY_KEY = {};   // "동코드|층코드" → plan 항목 (예: "G|B1")
-let currentLoc = null;  // 현재 위치(QR) 객체
+let currentLoc = null;  // 현재 위치(QR) 객체 — GPS·층전환으로 갱신됨
+let ORIGIN_LOC = null;  // QR 스캔 원본 위치 스냅샷 ("처음으로" 시 복원용)
 let destStore = null;   // 안내 중인 목적지 매장 (3단계에서만 설정)
 let candidates = [];    // 2단계 후보 매장 목록 [{s, xy, r}]
 let lastQuery = "";     // 마지막 검색어(가게 선택 화면 문구용)
@@ -24,6 +25,7 @@ let shownFloor = 1;     // 지도에 표시 중인 층
 // 방향 정렬 상태 — 현재 층에서는 지도가 -heading 회전 (내 정면 = 항상 화면 위)
 let USER_HEADING = null;   // 실시간 나침반 방위(0~360) — 없으면 null(QR 고정값 폴백)
 let COMPASS_ON = false;    // 나침반 리스너 부착 여부(중복 부착 방지)
+let COMPASS_REQUESTED = false;  // iOS 권한 요청 진행 중 플래그(비동기 중 중복 팝업 방지)
 let rafPending = false;    // applyHeading rAF 예약 중복 방지
 
 let VOICE_GUIDE = true;    // 음성 안내(TTS) 켜짐 여부 — 고령 사용자 배려 기본 ON
@@ -90,13 +92,20 @@ function geoToPx(lat, lng, plan) {
   return { x: A.px[0] + s * q.x - r * q.y, y: A.px[1] + r * q.x + s * q.y };
 }
 
-// 매장 좌표가 공식 평면도에 정합된(믿을 수 있는) 좌표인지.
-// 매장 자체 정밀좌표 또는 mapped:true 구역의 대표좌표만 정합으로 본다.
-// (그 외 구역 좌표는 임의 배치값이라 평면도 위 위치·거리 비교에 쓰면 안 됨)
+// 매장 x/y 좌표의 저작 좌표계 = G동 B1/1F/3F 평면도 크기(800×370).
+// 매장 좌표는 모두 이 공간에 그려졌으므로, 이 크기의 평면도에서만 실제 위치와 정합한다.
+// (B2 1100×960·타 동 평면도는 좌표계가 달라 같은 좌표를 찍으면 어긋난다)
+const STORE_COORD_W = 800, STORE_COORD_H = 370;
+
+// 매장 좌표가 대상 평면도에 정합된(믿을 수 있는) 좌표인지.
+// 좌표계가 일치하는 평면도 + 그 범위 안일 때만 "정밀 안내 가능"으로 본다.
+// (그 외는 위치가 대략이라 거리·마커 정밀도를 신뢰하면 안 됨)
 function storeMapped(s) {
-  if (Number.isFinite(s.x) && Number.isFinite(s.y)) return true;
-  const z = ZONE_BY_KEY[`${s.building}|${s.floor}`];
-  return !!(z && z.mapped);
+  const plan = planFor(dongOf(s.building), s.floor);
+  if (!plan) return false;                                          // 평면도 없는 층
+  if (plan.w !== STORE_COORD_W || plan.h !== STORE_COORD_H) return false;  // 좌표계 불일치
+  const xy = storeXY(s);
+  return !!xy && xy.x >= 0 && xy.x <= plan.w && xy.y >= 0 && xy.y <= plan.h;
 }
 
 // "가락몰 판매동 청과부류" → "판매동" 같이 화면용 짧은 건물명
@@ -163,6 +172,10 @@ async function init() {
     ]);
     STORES = (await storesRes.json()).stores;
     LOCATIONS = (await locsRes.json()).locations;
+    if (!Array.isArray(LOCATIONS) || LOCATIONS.length === 0) {
+      showFatal("위치(QR) 데이터가 비어 있습니다. locations.json 을 확인해주세요.");
+      return;
+    }
     if (zonesRes && zonesRes.ok) {
       const zones = (await zonesRes.json()).zones || [];
       zones.forEach((z) => { ZONE_BY_KEY[z.key] = z; });
@@ -203,12 +216,16 @@ function resolveCurrentLocation() {
   const params = new URLSearchParams(location.search);
   const locId = params.get("loc");
   currentLoc = LOCATIONS.find((l) => l.locId === locId) || LOCATIONS[0];
+  ORIGIN_LOC = { ...currentLoc };   // 원본 QR 스냅샷 보관 (GPS·층전환 전)
   shownDong = dongOf(currentLoc.building);
   shownFloor = currentLoc.floor;
-  const locNameEl = document.getElementById("currentLocName");
-  if (locNameEl) {
-    locNameEl.textContent = `${shortBuilding(currentLoc.building)} ${floorLabel(currentLoc.floor)} · ${currentLoc.name}`;
-  }
+  updateLocChip();
+}
+
+// 헤더의 현재 위치 칩 갱신
+function updateLocChip() {
+  const el = document.getElementById("currentLocName");
+  if (el) el.textContent = `${shortBuilding(currentLoc.building)} ${floorLabel(currentLoc.floor)} · ${currentLoc.name}`;
 }
 
 // ── 1단계: 입력 ────────────────────────────────────────────
@@ -364,6 +381,13 @@ function setupNavButtons() {
   document.getElementById("restartBtn").addEventListener("click", () => {
     destStore = null;
     candidates = [];
+    // 층전환·GPS로 옮겨진 현재 위치를 QR 스캔 원본으로 되돌림
+    if (ORIGIN_LOC) {
+      currentLoc = { ...ORIGIN_LOC };
+      shownDong = dongOf(currentLoc.building);
+      shownFloor = currentLoc.floor;
+      updateLocChip();
+    }
     document.getElementById("voiceStatus").textContent = "";
     goStep("input");
   });
@@ -430,7 +454,7 @@ function lowpassAngle(prev, next, a) {
 // 폰 방향 변화를 받아 헤딩 콘/HUD 화살표를 실시간 회전. 미지원·미허용·HTTP면 조용히
 // 폴백(QR 고정값). 권한은 반드시 사용자 제스처(버튼 탭) 안에서 요청해야 한다(iOS).
 function enableCompass() {
-  if (COMPASS_ON) return;
+  if (COMPASS_ON || COMPASS_REQUESTED) return;   // 이미 부착됐거나 권한 요청 진행 중이면 무시
   if (!window.isSecureContext) return;            // http → QR 고정 폴백
   const DOE = window.DeviceOrientationEvent;
   if (!DOE) return;
@@ -443,8 +467,12 @@ function enableCompass() {
   };
 
   if (typeof DOE.requestPermission === "function") {
-    // iOS Safari: 제스처 동기 경로에서 권한 팝업
-    DOE.requestPermission().then((res) => { if (res === "granted") attach(); }).catch(() => {});
+    // iOS Safari: 제스처 동기 경로에서 권한 팝업 (비동기 resolve 전 재호출 차단)
+    COMPASS_REQUESTED = true;
+    DOE.requestPermission()
+      .then((res) => { if (res === "granted") attach(); })
+      .catch(() => {})
+      .finally(() => { COMPASS_REQUESTED = false; });
   } else {
     attach();   // Android/기타
   }
@@ -550,10 +578,21 @@ function computeGuidance() {
   const curPlan = planFor(dongOf(currentLoc.building), currentLoc.floor);
   const destXY = storeXY(destStore);
   const sameView = viewOf(destStore.building, destStore.floor) === viewOf(currentLoc.building, currentLoc.floor);
-  const esc = curPlan && curPlan.escalator ? { x: curPlan.escalator[0], y: curPlan.escalator[1] } : null;
+  const crossDong = dongOf(destStore.building) !== dongOf(currentLoc.building);
+  // 다른 건물(동)이면 현재 동 에스컬레이터로 유도하지 않는다 (연결되지 않으므로).
+  const esc = (!crossDong && curPlan && curPlan.escalator)
+    ? { x: curPlan.escalator[0], y: curPlan.escalator[1] } : null;
   const target = sameView ? destXY : esc;
 
-  if (!target) return { key: "map", icon: "🧭", text: "지도를 참고해 이동하세요", speak: null };
+  if (!target) {
+    if (crossDong) {
+      const bld = shortBuilding(destStore.building);
+      return { key: "cross-bld", icon: "🏢",
+               text: `${bld} ${floorLabel(destStore.floor)}으로 이동하세요`,
+               speak: `${destStore.name}은 ${bld}에 있어요. 그쪽으로 이동한 뒤 안내소에 문의하세요.` };
+    }
+    return { key: "map", icon: "🧭", text: "지도를 참고해 이동하세요", speak: null };
+  }
 
   const remain = dist(currentLoc, target);
   // 도착 판정
@@ -661,7 +700,7 @@ function arriveOnDestFloor() {
     building: destStore.building, floor: destStore.floor,
     x: esc ? esc[0] : fallback.x,
     y: esc ? esc[1] : fallback.y,
-    name: "에스컬레이터",
+    name: "에스컬레이터 앞",
   };
   // 나침반 없는 환경 대비: 2구간 진행 방향을 기본 정면으로 (나침반이 있으면 무시됨)
   const secondLeg = firstSegBearing(computeRoutePts(currentLoc, storeXY(destStore), plan));
@@ -669,10 +708,7 @@ function arriveOnDestFloor() {
   shownDong = dong;
   shownFloor = destStore.floor;
   lastGuideKey = null;   // 새 층 지시를 새로 발화
-  const locNameEl = document.getElementById("currentLocName");
-  if (locNameEl) {
-    locNameEl.textContent = `${shortBuilding(currentLoc.building)} ${floorLabel(currentLoc.floor)} · 에스컬레이터 앞`;
-  }
+  updateLocChip();
   const stage = document.getElementById("mapStage");
   stage.classList.remove("floor-flash");
   void stage.offsetWidth;               // 애니메이션 재시작 트릭
@@ -698,7 +734,11 @@ function onOrientation(e) {
   USER_HEADING = USER_HEADING == null ? h : lowpassAngle(USER_HEADING, h, 0.15);
   if (!rafPending) {
     rafPending = true;
-    requestAnimationFrame(() => { rafPending = false; applyHeading(); });
+    requestAnimationFrame(() => {
+      rafPending = false;
+      applyHeading();          // 지도·콘 회전
+      updateGuidance(false);   // 몸을 돌리면 "뒤로 도세요" 같은 지시도 즉시 갱신
+    });
   }
 }
 
@@ -741,7 +781,9 @@ function renderMap() {
   const curView = viewOf(currentLoc.building, currentLoc.floor);
   const thisView = `${shownDong}|${shownFloor}`;
   const onFloorCurrent = curView === thisView;
-  const destXY = destStore ? storeXY(destStore) : null;
+  // 좌표계가 다른 층의 매장(H2)은 화면 밖으로 나갈 수 있어 평면도 범위로 가둔다
+  const clampToPlan = (p) => p && { x: Math.max(6, Math.min(vbW - 6, p.x)), y: Math.max(6, Math.min(vbH - 6, p.y)) };
+  const destXY = destStore ? clampToPlan(storeXY(destStore)) : null;
   const destView = destStore ? viewOf(destStore.building, destStore.floor) : null;
   const onFloorDest = destView === thisView;
 
@@ -837,15 +879,15 @@ function layoutMap() {
   });
 }
 
-// 재렌더 없이 방향 요소만 갱신: 지도 회전(layoutMap) + 헤딩 콘 + 역방향 지시.
+// 재렌더 없이 방향 요소만 갱신: 지도 회전(layoutMap) + 헤딩 콘.
 // 콘은 지도 좌표계에서 +H 회전 → 지도가 -H 돌므로 화면에선 항상 위를 가리킨다.
+// (지시 갱신은 호출부가 담당 — renderMap은 silent 가드로, 나침반 경로는 onOrientation에서.)
 function applyHeading() {
   if (document.getElementById("stepNav").classList.contains("hidden")) return;   // 네비 화면에서만
   const H = activeHeading();
   const cone = document.getElementById("headCone");
   if (cone) cone.setAttribute("transform", `rotate(${H} ${currentLoc.x} ${currentLoc.y})`);
   layoutMap();
-  updateGuidance(false);   // 몸을 돌리면 "뒤로 도세요" 같은 지시도 즉시 갱신
 }
 
 // 헤딩 콘: 현재위치 마커 아래에 깔리는 부채꼴(사용자가 보는 방향).

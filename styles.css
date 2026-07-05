@@ -106,7 +106,8 @@ main { flex: 1; padding: 12px 14px 2px; }
   50% { box-shadow: 0 0 0 16px rgba(232, 115, 26, 0.1); }
 }
 .mic-label { font-size: 1.05rem; font-weight: 700; color: var(--green-dark); }
-.voice-status { text-align: center; min-height: 1.2em; font-size: 0.95rem; color: var(--orange); font-weight: 700; }
+/* 오류·안내 문구 — 크림 배경에서 WCAG AA(4.5:1) 확보 위해 진한 주황 사용 */
+.voice-status { text-align: center; min-height: 1.2em; font-size: 0.95rem; color: #a8480c; font-weight: 700; }
 
 /* ── 1단계: 카테고리 버튼 ──────────────── */
 .category-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -302,9 +303,7 @@ main { flex: 1; padding: 12px 14px 2px; }
 }
 
 /* 낮은 화면(폰 브라우저 주소창 포함)에서 푸터 숨겨 한 화면에 맞춤 */
+/* (네비 화면 푸터 숨김은 위 #app:has(#stepNav) 규칙이 담당) */
 @media (max-height: 780px) {
   .app-footer { display: none; }
 }
-
-/* 네비게이션 화면에서는 푸터 숨김 — 지도를 화면높이에 딱 맞추기 위해 */
-#app:has(#stepNav:not(.hidden)) .app-footer { display: none; }
