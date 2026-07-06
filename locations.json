@@ -13,7 +13,7 @@
     {
       "locId": "g-b1-west",
       "name": "서측 입구",
-      "building": "가락몰 판매동 청과부류",
+      "building": "가락몰 판매동",
       "floor": -1,
       "x": 78,
       "y": 228,
@@ -22,7 +22,7 @@
     {
       "locId": "g-b1-esc",
       "name": "중앙 에스컬레이터 앞",
-      "building": "가락몰 판매동 청과부류",
+      "building": "가락몰 판매동",
       "floor": -1,
       "x": 240,
       "y": 135,
@@ -31,7 +31,7 @@
     {
       "locId": "g-b1-east",
       "name": "동측 입구",
-      "building": "가락몰 판매동 청과부류",
+      "building": "가락몰 판매동",
       "floor": -1,
       "x": 745,
       "y": 115,
@@ -40,7 +40,7 @@
     {
       "locId": "g-3f-esc",
       "name": "식당가 에스컬레이터 앞",
-      "building": "가락몰 판매동 관련상가",
+      "building": "가락몰 판매동",
       "floor": 3,
       "x": 570,
       "y": 148,
@@ -49,7 +49,7 @@
     {
       "locId": "g-f1-west",
       "name": "1층 서측 입구",
-      "building": "가락몰 판매동 수산부류",
+      "building": "가락몰 판매동",
       "floor": 1,
       "x": 65,
       "y": 250,
@@ -58,7 +58,7 @@
     {
       "locId": "g-f1-east",
       "name": "1층 동측 입구",
-      "building": "가락몰 판매동 축산부류",
+      "building": "가락몰 판매동",
       "floor": 1,
       "x": 740,
       "y": 236,

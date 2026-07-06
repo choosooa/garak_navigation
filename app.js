@@ -11,7 +11,7 @@
 // ── 전역 상태 ──────────────────────────────────────────────
 let STORES = [];        // 매장 목록
 let LOCATIONS = [];     // QR 위치 목록
-let ZONE_BY_KEY = {};   // 구역 대표좌표 맵: "building|floor" → {x,y,mapped}
+let ZONE_BY_KEY = {};   // 구역 대표좌표 맵: "building|section|floor" → {x,y,mapped}
 let PLANS = [];         // 평면도 인덱스 (floorplans/index.json)
 let PLAN_BY_KEY = {};   // "동코드|층코드" → plan 항목 (예: "G|B1")
 let currentLoc = null;  // 현재 위치(QR) 객체 — GPS·층전환으로 갱신됨
@@ -64,10 +64,10 @@ function approxMeters(px, plan) {
 }
 
 // 매장의 지도 좌표를 구한다.
-// 1순위: 매장 자체 x,y(정밀)  2순위: 자기 구역(building+층)의 대표좌표  없으면 null
+// 1순위: 매장 자체 x,y(정밀)  2순위: 자기 구역(building+section+층)의 대표좌표  없으면 null
 function storeXY(s) {
   if (Number.isFinite(s.x) && Number.isFinite(s.y)) return { x: s.x, y: s.y };
-  const z = ZONE_BY_KEY[`${s.building}|${s.floor}`];
+  const z = ZONE_BY_KEY[`${s.building}|${s.section || ""}|${s.floor}`];
   if (z && Number.isFinite(z.x) && Number.isFinite(z.y)) return { x: z.x, y: z.y };
   return null;
 }

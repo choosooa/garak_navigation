@@ -16,8 +16,9 @@
 # 사용법:
 #   python3 tools/convert_garak_csv.py <받은_CSV_경로> > stores.json
 #   예) python3 tools/convert_garak_csv.py ~/Downloads/가락몰_시설정보.csv > stores.json
+#   구역 파일도 함께 만들려면: --zones zones.json (기존 zones.json 의 좌표는 유지·병합)
 
-import sys, csv, json, re, io
+import sys, csv, json, re, io, os
 
 # ── 실제 CSV 헤더명에 맞춰 조정하는 부분 (핵심) ───────────────────
 # ※ 이 CSV는 위치정보가 '건물명' 컬럼에 들어있음
@@ -86,11 +87,22 @@ def parse_zone(place):
     return m.group(1) if m else ""
 
 
+# 건물 정규화: 위치 문자열은 '건물 + 용도구분(section)'이 붙어 있음
+#   예: '가락몰 판매동 청과부류 지하1층 001-1호' → building='가락몰 판매동', section='청과부류'
+#   평면도 동코드 대응: 판매동=G, 1관=E, 2관=C, 3관=D, 4관=B, 5관=A, 업무동=F (admin-map.html dongOf)
+BUILDINGS = ["판매동", "1관", "2관", "3관", "4관", "5관", "업무동"]
+
+
 def parse_building(row, place):
-    """건물명 문자열에서 층 토큰 앞부분(시설명)을 건물로 사용.
-    예: '가락몰 판매동 청과부류 지하1층 001-1호' → '가락몰 판매동 청과부류'."""
+    """건물명 문자열에서 층 토큰 앞부분을 building/section 으로 분리.
+    '가락몰판매동기타' 처럼 띄어쓰기 없는 표기도 처리."""
     head = re.split(r"\s*(?:지하\s*\d+\s*층|\d+\s*층)", place)[0].strip()
-    return head or place
+    h = head.replace("가락몰", "", 1).strip()
+    for b in BUILDINGS:
+        if h.startswith(b):
+            section = h[len(b):].strip()
+            return f"가락몰 {b}", section
+    return head or place, ""   # 못 알아본 표기는 원문 유지
 
 
 def map_categories(raw):
@@ -103,12 +115,62 @@ def map_categories(raw):
     return [raw]
 
 
+def floor_label(f):
+    return f"지하{-f}층" if f < 0 else f"{f}층"
+
+
+def build_zones(stores, prev_path=None):
+    """매장을 (building, section, floor)로 묶어 구역 목록 생성.
+    prev_path 의 기존 zones.json 에 같은 key 좌표가 있으면 유지(수작업 좌표 보존)."""
+    prev = {}
+    if prev_path and os.path.exists(prev_path):
+        with open(prev_path, "r", encoding="utf-8") as f:
+            for z in json.load(f).get("zones", []):
+                if isinstance(z.get("x"), (int, float)) and isinstance(z.get("y"), (int, float)):
+                    prev[z["key"]] = (z["x"], z["y"])
+
+    groups = {}
+    for s in stores:
+        k = (s["building"], s["section"], s["floor"])
+        groups[k] = groups.get(k, 0) + 1
+
+    # 좌표 미지정 구역은 null — 임의 좌표를 넣으면 최근접 매장 계산을 오염시킴.
+    # admin-map.html 에서 평면도 위에 클릭해 실좌표를 채우세요.
+    zones = []
+    for (b, sec, f), cnt in sorted(groups.items(), key=lambda kv: -kv[1]):
+        key = f"{b}|{sec}|{f}"
+        x, y = prev.get(key, (None, None))
+        zones.append({
+            "key": key,
+            "building": b,
+            "section": sec,
+            "floor": f,
+            "name": " ".join(t for t in (b, sec, floor_label(f)) if t),
+            "count": cnt,
+            "x": x,
+            "y": y,
+        })
+    return zones
+
+
 def main():
     if len(sys.argv) < 2:
-        sys.exit("사용법: python3 tools/convert_garak_csv.py <CSV경로> > stores.json")
+        sys.exit("사용법: python3 tools/convert_garak_csv.py <CSV경로> [--zones zones.json] > stores.json")
+
+    zones_path = None
+    if "--zones" in sys.argv:
+        zones_path = sys.argv[sys.argv.index("--zones") + 1]
 
     rows, enc = read_rows(sys.argv[1])
     sys.stderr.write(f"[info] 인코딩={enc}, 행수={len(rows)}\n")
+
+    # 기존 stores.json 에 수작업 좌표(x,y)가 있으면 id 기준으로 보존
+    prev_xy = {}
+    if os.path.exists("stores.json"):
+        with open("stores.json", encoding="utf-8") as f:
+            for s in json.load(f).get("stores", []):
+                if isinstance(s.get("x"), (int, float)) and isinstance(s.get("y"), (int, float)):
+                    prev_xy[s["id"]] = (s["x"], s["y"])
 
     stores = []
     for i, row in enumerate(rows, start=1):
@@ -117,17 +179,21 @@ def main():
             continue
         place = pick(row, COLS["place"])
         floor = parse_floor(place)
+        building, section = parse_building(row, place)
+        sid = f"s{i:04d}"
+        x, y = prev_xy.get(sid, (None, None))
         stores.append({
-            "id": f"s{i:04d}",
+            "id": sid,
             "name": name,
-            "building": parse_building(row, place),
+            "building": building,
+            "section": section,
             "zone": parse_zone(place),
             "floor": floor if floor is not None else 1,   # 층 못 읽으면 1층 가정
             "categories": map_categories(pick(row, COLS["category"])),
             "tel": pick(row, COLS["tel"]),
-            # x, y 는 좌표 매핑 도구(admin-map.html)로 채울 것 — 우선 null
-            "x": None,
-            "y": None,
+            # x, y 는 좌표 매핑 도구(admin-map.html)로 채울 것 — 기존 좌표는 보존
+            "x": x,
+            "y": y,
         })
 
     out = {
@@ -137,6 +203,16 @@ def main():
     }
     print(json.dumps(out, ensure_ascii=False, indent=2))
     sys.stderr.write(f"[done] 매장 {len(stores)}개 변환 완료. x,y 는 좌표 매핑 도구로 입력하세요.\n")
+
+    if zones_path:
+        zones = build_zones(stores, prev_path=zones_path)
+        zout = {
+            "_comment": "구역(building+section+층) 대표좌표. ⚠️ 자동배치 좌표는 임의값 — admin-map.html 에서 공식 평면도 위에 클릭해 실제 위치로 교체하세요.",
+            "zones": zones,
+        }
+        with open(zones_path, "w", encoding="utf-8") as f:
+            json.dump(zout, f, ensure_ascii=False, indent=2)
+        sys.stderr.write(f"[done] 구역 {len(zones)}개 → {zones_path}\n")
 
 
 if __name__ == "__main__":
