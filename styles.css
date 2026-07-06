@@ -109,6 +109,38 @@ main { flex: 1; padding: 12px 14px 2px; }
 /* 오류·안내 문구 — 크림 배경에서 WCAG AA(4.5:1) 확보 위해 진한 주황 사용 */
 .voice-status { text-align: center; min-height: 1.2em; font-size: 0.95rem; color: #a8480c; font-weight: 700; }
 
+/* ── 1단계: 텍스트 검색창 (음성 대신 직접 입력) ── */
+.search-form { display: flex; gap: 8px; }
+.search-form input {
+  flex: 1;
+  min-width: 0;
+  min-height: 52px;              /* 5060 배려 큰 터치 영역 */
+  padding: 10px 16px;
+  font: inherit;
+  font-size: 1.05rem;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: var(--card-shadow);
+}
+.search-form input:focus { outline: none; border-color: var(--green); }
+.search-form input::placeholder { color: #9aa39c; }
+.search-form button {
+  min-height: 52px;
+  padding: 10px 18px;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 800;
+  border: none;
+  border-radius: 16px;
+  background: var(--green);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: var(--card-shadow);
+}
+.search-form button:active { background: var(--green-dark); transform: scale(0.97); }
+
 /* ── 1단계: 카테고리 버튼 ──────────────── */
 .category-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .category-buttons button {

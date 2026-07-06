@@ -11,7 +11,7 @@
 // ── 전역 상태 ──────────────────────────────────────────────
 let STORES = [];        // 매장 목록
 let LOCATIONS = [];     // QR 위치 목록
-let ZONE_BY_KEY = {};   // 구역 대표좌표 맵: "building|floor" → {x,y,mapped}
+let ZONE_BY_KEY = {};   // 구역 대표좌표 맵: "building|section|floor" → {x,y,mapped}
 let PLANS = [];         // 평면도 인덱스 (floorplans/index.json)
 let PLAN_BY_KEY = {};   // "동코드|층코드" → plan 항목 (예: "G|B1")
 let currentLoc = null;  // 현재 위치(QR) 객체 — GPS·층전환으로 갱신됨
@@ -64,10 +64,10 @@ function approxMeters(px, plan) {
 }
 
 // 매장의 지도 좌표를 구한다.
-// 1순위: 매장 자체 x,y(정밀)  2순위: 자기 구역(building+층)의 대표좌표  없으면 null
+// 1순위: 매장 자체 x,y(정밀)  2순위: 자기 구역(building+section+층)의 대표좌표  없으면 null
 function storeXY(s) {
   if (Number.isFinite(s.x) && Number.isFinite(s.y)) return { x: s.x, y: s.y };
-  const z = ZONE_BY_KEY[`${s.building}|${s.floor}`];
+  const z = ZONE_BY_KEY[`${s.building}|${s.section || ""}|${s.floor}`];
   if (z && Number.isFinite(z.x) && Number.isFinite(z.y)) return { x: z.x, y: z.y };
   return null;
 }
@@ -191,6 +191,7 @@ async function init() {
 
   resolveCurrentLocation();   // URL ?loc= 로 현재 위치 결정
   renderCategoryButtons();    // 카테고리 버튼 생성
+  setupSearchInput();         // 텍스트 검색창
   setupVoice();               // 음성 인식 준비
   setupNavButtons();          // 2·3단계 버튼(뒤로/처음/음성안내) 연결
 
@@ -238,6 +239,18 @@ function renderCategoryButtons() {
     btn.innerHTML = `<span class="cat-emoji">${c.emoji}</span><span>${c.label}</span>`;
     btn.addEventListener("click", () => { enableCompass(); handleQuery(c.terms[0]); });
     box.appendChild(btn);
+  });
+}
+
+// 텍스트 검색창 — 음성·버튼과 같은 handleQuery 를 탄다
+function setupSearchInput() {
+  const form = document.getElementById("searchForm");
+  const input = document.getElementById("searchInput");
+  form.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    enableCompass();          // 카테고리 버튼과 동일: 첫 상호작용에서 나침반 권한 요청
+    handleQuery(input.value);
+    input.blur();             // 모바일 키보드 닫기
   });
 }
 
