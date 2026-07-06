@@ -7,7 +7,7 @@
   <!-- 모바일 세로 화면 우선. 고령 사용자를 위해 핀치 줌 허용, iOS 노치/홈바 영역 반영(safe-area) -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>가락몰 길찾기</title>
-  <link rel="stylesheet" href="styles.css?v=22" />
+  <link rel="stylesheet" href="styles.css?v=23" />
 </head>
 <body>
   <div id="app">
@@ -40,6 +40,13 @@
           <p class="mic-label">눌러서 말하기</p>
         </div>
         <p id="voiceStatus" class="voice-status"></p>
+
+        <!-- 텍스트 검색: 음성이 안 되거나 직접 입력하고 싶을 때 -->
+        <form id="searchForm" class="search-form">
+          <input id="searchInput" type="search" placeholder="품목을 입력하세요 (예: 사과, 갈치)"
+                 autocomplete="off" enterkeyhint="search" />
+          <button type="submit">검색</button>
+        </form>
 
         <!-- 카테고리 터치 버튼 (음성 실패/소음 대비 항상 제공) -->
         <div id="categoryButtons" class="category-buttons"></div>
@@ -93,6 +100,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=22"></script>
+  <script src="app.js?v=23"></script>
 </body>
 </html>

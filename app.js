@@ -191,6 +191,7 @@ async function init() {
 
   resolveCurrentLocation();   // URL ?loc= 로 현재 위치 결정
   renderCategoryButtons();    // 카테고리 버튼 생성
+  setupSearchInput();         // 텍스트 검색창
   setupVoice();               // 음성 인식 준비
   setupNavButtons();          // 2·3단계 버튼(뒤로/처음/음성안내) 연결
 
@@ -238,6 +239,18 @@ function renderCategoryButtons() {
     btn.innerHTML = `<span class="cat-emoji">${c.emoji}</span><span>${c.label}</span>`;
     btn.addEventListener("click", () => { enableCompass(); handleQuery(c.terms[0]); });
     box.appendChild(btn);
+  });
+}
+
+// 텍스트 검색창 — 음성·버튼과 같은 handleQuery 를 탄다
+function setupSearchInput() {
+  const form = document.getElementById("searchForm");
+  const input = document.getElementById("searchInput");
+  form.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    enableCompass();          // 카테고리 버튼과 동일: 첫 상호작용에서 나침반 권한 요청
+    handleQuery(input.value);
+    input.blur();             // 모바일 키보드 닫기
   });
 }
 
