@@ -1,240 +1,213 @@
 /* 가락몰 길찾기 스타일 / 생성일: 2026-06-25 */
-/* 모바일 세로 화면 우선 · 큰 글씨(50~60대 주 고객층) · 웜 크림 배경 + 진초록 포인트 */
+/* UI 리디자인 2026-07-07: design_handoff_garakmall_wayfinding/mockup.html 기준 (high-fidelity) */
+/* 모바일 세로 우선 · 큰 글씨(기본 19px, 5060 주 고객층) · 터치 52px+ · 크림+진초록+주황 */
 /* 화면 3단계: ① 품목 입력 → ② 가게 선택 → ③ 네비게이션 (한 번에 한 화면만 표시) */
 
+/* ═══════════ 디자인 토큰 (mockup.html :root 그대로) ═══════════ */
 :root {
-  --green: #1e7a3c;
-  --green-dark: #155c2c;
-  --orange: #e8731a;
-  --cream: #faf6ee;
-  --ink: #26302a;
-  --line: #e4ddcf;
-  --card-shadow: 0 2px 10px rgba(38, 48, 42, 0.08);
+  --green: #1e7a3c;          /* 브랜드 진초록 */
+  --green-dark: #155c2c;     /* 눌림/그라데이션 하단 */
+  --green-soft: #e3f0e6;     /* 초록 연한 배경 */
+  --orange: #e8731a;         /* 목적지·행동 강조 */
+  --orange-soft: #fdeadb;    /* 주황 연한 배경 */
+  --cream: #faf6ee;          /* 앱 배경 */
+  --card: #ffffff;           /* 카드 배경 */
+  --ink: #232a24;            /* 본문 글자 */
+  --ink-sub: #6b7268;        /* 보조 글자 */
+  --line: #eae4d6;           /* 구분선 */
+  --fs-body: 19px;
+  --fs-sub: 16px;
+  --fs-title: 23px;
+  --fs-big: 28px;
+  --fs-hero: 34px;
+  --sp-1: 8px; --sp-2: 12px; --sp-3: 16px; --sp-4: 20px; --sp-5: 24px;
+  --touch: 52px;
+  --radius: 20px;
+  --radius-lg: 28px;
+  --shadow: 0 4px 16px rgba(35, 42, 36, 0.08);
+  --btn-green-grad: linear-gradient(175deg, #27924b, var(--green) 55%, var(--green-dark));
+  --btn-green-shadow: 0 4px 10px rgba(30, 122, 60, 0.35),
+    inset 0 2px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.18);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html { font-size: 19px; }   /* 기본 글씨 크게 (5060 주 고객층) */
-
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
-    "Malgun Gothic", sans-serif;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo",
+    "Noto Sans KR", "Malgun Gothic", sans-serif;
+  font-size: var(--fs-body);
   background: var(--cream);
   color: var(--ink);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
+button { font-family: inherit; cursor: pointer; }
 
 #app { max-width: 560px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+main { flex: 1; display: flex; flex-direction: column; }
+.step-view { display: flex; flex-direction: column; }
 
-/* ── 헤더 ─────────────────────────────── */
-.app-header {
+/* ── 마스코트 + 말풍선 (화면 1·2 공용) ───── */
+.mascot-row { display: flex; align-items: flex-end; gap: 12px; padding: 6px var(--sp-4) 0; }
+.mascot { width: 64px; height: 64px; object-fit: contain; flex-shrink: 0; mix-blend-mode: multiply; }
+.mascot-sm { width: 56px; height: 56px; }
+.bubble {
+  background: var(--card);
+  border-radius: var(--radius);
+  border-bottom-left-radius: 6px;
+  box-shadow: var(--shadow);
+  padding: 13px 16px;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.35;
+}
+.bubble-title { font-size: var(--fs-title); padding: 14px 18px; white-space: nowrap; }
+.bubble .q { color: var(--green); }
+
+/* ═══════════ 화면 1 — 품목 입력 ═══════════ */
+/* 헤더: 진초록 상단 바 — 앱명(흰 글씨) + 현재 위치 칩 한 줄 */
+.s1-header {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   background: linear-gradient(135deg, var(--green) 0%, var(--green-dark) 100%);
-  color: #fff;
-  padding: 9px 14px;
+  padding: 14px var(--sp-3);
   border-radius: 0 0 16px 16px;
-  box-shadow: var(--card-shadow);
+  box-shadow: var(--shadow);
 }
-.app-header h1 { font-size: 1.1rem; letter-spacing: -0.5px; white-space: nowrap; }
+.s1-appname {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 21px; font-weight: 800; color: #fff; letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.s1-appname .logo { font-size: 30px; line-height: 1; }
 .loc-chip {
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  max-width: 60%;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255, 255, 255, 0.94);
+  border: none;
+  color: var(--green-dark);
+  font-size: 15px; font-weight: 700;
+  padding: 8px 13px; border-radius: 999px;
+  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.loc-chip::before { content: "📍 "; }
+.loc-chip::before { content: "📍"; }
 
-main { flex: 1; padding: 12px 14px 2px; }
-.step-view { display: flex; flex-direction: column; gap: 8px; }
-
-/* ── 마스코트 말풍선 ───────────────────── */
-.mascot-say { display: flex; align-items: flex-end; gap: 10px; }
-.mascot-say .mascot { width: 74px; height: auto; flex: none; mix-blend-mode: multiply; }  /* 원본 PNG 흰 배경 숨김 */
-.mascot-say .bubble {
-  position: relative;
-  background: #fff;
-  border: 2px solid var(--green);
-  border-radius: 18px 18px 18px 4px;
-  padding: 10px 14px;
-  font-size: 1.05rem;
-  font-weight: 700;
-  box-shadow: var(--card-shadow);
-}
-.mascot-say .bubble small { font-weight: 400; font-size: 0.85rem; color: #6a756d; }
-.mascot-say.intro { margin-bottom: 2px; }
-.mascot-say.intro .mascot { width: auto; height: 108px; margin-left: -8px; }  /* 세로 긴 원본 → 높이 기준 제한 */
-.mascot-say.intro .bubble { font-size: 1.4rem; }
-.mascot-say.intro .bubble small { font-size: 1rem; }
-
-/* ── 1단계: 음성 입력 ──────────────────── */
-/* 1단계도 네비처럼 한 화면 고정 — 남는 세로 공간을 전부 마이크에 준다 */
-#app:has(#stepInput:not(.hidden)) { height: 100vh; height: 100dvh; min-height: auto; overflow: hidden; }
-#app:has(#stepInput:not(.hidden)) main { min-height: 0; display: flex; }
-#stepInput { flex: 1; min-height: 0; }
-
-.voice-wrap {
-  flex: 1; min-height: 0;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 8px;
-  text-align: center;
-}
+/* 1순위: 음성 — 큰 원형 마이크 (라벨 포함) */
+.s1-voice { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px 0 14px; }
 .mic-btn {
-  /* 화면 폭 68% vs 남는 높이 기반 상한 중 작은 쪽 — 어떤 폰에서도 스크롤 없이 최대 */
-  width: clamp(150px, min(68vw, calc(100dvh - 420px)), 340px);
+  /* 화면 폭 72% vs 남는 세로 공간 중 작은 쪽 — 시작 화면의 주인공 (구버전 비율) */
+  width: clamp(180px, min(72vw, calc(100dvh - 555px)), 310px);
   aspect-ratio: 1 / 1;
-  border: none; border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, #2c9450, var(--green) 62%);
-  box-shadow: 0 8px 22px rgba(30, 122, 60, 0.4);
-  cursor: pointer;
-  transition: transform 0.12s ease;
-  display: flex; align-items: center; justify-content: center;
+  border-radius: 999px; border: none;
+  background: linear-gradient(170deg, #27924b, var(--green) 55%, var(--green-dark));
+  box-shadow: 0 10px 28px rgba(30, 122, 60, 0.38), inset 0 2px 0 rgba(255, 255, 255, 0.25);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  color: #fff;
 }
-.mic-btn svg { width: 46%; height: 46%; }
-.mic-btn:active { transform: scale(0.94); }
+.mic-btn svg { width: 32%; height: auto; }
+.mic-btn:active { transform: scale(0.96); }
+.mic-btn .mic-label { font-size: 25px; font-weight: 800; letter-spacing: -0.01em; }
 .mic-btn.listening {
-  background: radial-gradient(circle at 32% 28%, #f28b3b, var(--orange) 62%);
-  box-shadow: 0 0 0 10px rgba(232, 115, 26, 0.22);
+  background: linear-gradient(170deg, #f2872f, var(--orange) 55%, #c95e0f);
   animation: pulse 1.1s infinite;
 }
 @keyframes pulse {
   0%, 100% { box-shadow: 0 0 0 6px rgba(232, 115, 26, 0.25); }
   50% { box-shadow: 0 0 0 16px rgba(232, 115, 26, 0.1); }
 }
-.mic-label { font-size: 1.05rem; font-weight: 700; color: var(--green-dark); }
-/* 오류·안내 문구 — 크림 배경에서 WCAG AA(4.5:1) 확보 위해 진한 주황 사용 */
-.voice-status { text-align: center; min-height: 1.2em; font-size: 0.95rem; color: #a8480c; font-weight: 700; }
+/* 오류·안내 문구 — 크림 배경에서 WCAG AA 확보 위해 진한 주황 */
+.voice-status { text-align: center; min-height: 1.2em; font-size: 0.9em; color: #a8480c; font-weight: 700; padding: 0 var(--sp-4); }
 
-/* ── 1단계: 텍스트 검색창 (음성 대신 직접 입력) ── */
-.search-form { display: flex; gap: 8px; }
-.search-form input {
-  flex: 1;
-  min-width: 0;
-  min-height: 52px;              /* 5060 배려 큰 터치 영역 */
-  padding: 10px 16px;
-  font: inherit;
-  font-size: 1.05rem;
-  border: 2px solid var(--line);
-  border-radius: 16px;
-  background: #fff;
-  color: var(--ink);
-  box-shadow: var(--card-shadow);
-}
-.search-form input:focus { outline: none; border-color: var(--green); }
-.search-form input::placeholder { color: #9aa39c; }
-.search-form button {
-  min-height: 52px;
-  padding: 10px 18px;
-  font: inherit;
-  font-size: 1.05rem;
-  font-weight: 800;
-  border: none;
-  border-radius: 16px;
-  background: var(--green);
-  color: #fff;
-  cursor: pointer;
-  box-shadow: var(--card-shadow);
-}
-.search-form button:active { background: var(--green-dark); transform: scale(0.97); }
-
-/* ── 1단계: 카테고리 버튼 ──────────────── */
-.category-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.category-buttons button {
+/* 2순위: 텍스트 검색 */
+.s1-search { padding: 0 var(--sp-4); display: flex; gap: 10px; }
+.search-box {
+  flex: 1; min-width: 0;
   display: flex; align-items: center; gap: 10px;
-  border: 2px solid var(--line);
-  background: #fff;
+  background: var(--card);
+  border: 1.5px solid var(--line);
   border-radius: 16px;
-  padding: 12px 12px;               /* 큰 터치 영역 유지하며 압축 */
-  font-size: 1.08rem;
-  font-weight: 700;
-  color: var(--ink);
-  cursor: pointer;
-  box-shadow: var(--card-shadow);
-  transition: transform 0.1s ease, border-color 0.1s ease;
-  word-break: keep-all;   /* "특산품" 같은 단어 중간 줄바꿈 방지 */
+  padding: 0 16px; height: var(--touch);
+  box-shadow: var(--shadow);
 }
-.category-buttons button:active { transform: scale(0.97); border-color: var(--green); }
-.cat-emoji { font-size: 1.3rem; }
+.search-box:focus-within { border-color: var(--green); }
+.search-ico { font-size: 20px; color: var(--ink-sub); }
+.search-box input {
+  border: none; outline: none; background: transparent;
+  font-size: 18px; font-family: inherit; width: 100%; color: var(--ink);
+}
+.search-box input::placeholder { color: #9aa094; font-weight: 500; }
+.btn-green {
+  height: var(--touch); padding: 0 20px; border: none; border-radius: 16px;
+  background: var(--btn-green-grad); box-shadow: var(--btn-green-shadow);
+  color: #fff; font-size: 19px; font-weight: 800; flex-shrink: 0;
+}
+.btn-green:active { transform: scale(0.97); }
 
-/* ── 2단계: 가게 선택 목록 ─────────────── */
-.select-hint { font-size: 0.9rem; color: #6a756d; font-weight: 700; margin-top: -6px; }
-.store-list { display: flex; flex-direction: column; gap: 12px; }
-.store-card {
-  display: flex; align-items: center; gap: 12px;
-  width: 100%;
-  text-align: left;
-  background: #fff;
-  border: 2px solid var(--line);
-  border-radius: 18px;
-  padding: 14px 14px;
-  cursor: pointer;
-  box-shadow: var(--card-shadow);
-  font: inherit;
-  transition: transform 0.1s ease, border-color 0.1s ease;
+/* 3순위: 카테고리 */
+.s1-cats { padding: var(--sp-5) var(--sp-4) var(--sp-3); display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.s1-cats-label { font-size: var(--fs-sub); font-weight: 700; color: var(--ink-sub); }
+.cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cat-btn {
+  height: var(--touch);
+  border: 1.5px solid var(--line); border-radius: 16px; background: var(--card);
+  display: flex; align-items: center; gap: 10px; padding: 0 16px;
+  font-size: 18px; font-weight: 700; color: var(--ink);
+  word-break: keep-all;
 }
-.store-card:active { transform: scale(0.98); border-color: var(--green); }
-.store-rank {
-  flex: none;
-  width: 40px; height: 40px;
-  border-radius: 50%;
-  background: var(--cream);
-  border: 2px solid var(--line);
-  color: var(--green-dark);
-  font-weight: 800;
-  font-size: 1.15rem;
-  display: flex; align-items: center; justify-content: center;
-}
-.store-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.store-info strong { font-size: 1.2rem; color: var(--ink); line-height: 1.3; }
-.store-where { font-size: 0.95rem; color: var(--green-dark); font-weight: 700; }
-.store-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.store-tags em {
-  font-style: normal;
-  background: #eef6ef;
-  color: var(--green-dark);
-  border-radius: 999px;
-  padding: 1px 10px;
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-.store-go {
-  flex: none;
-  background: var(--green);
-  color: #fff;
-  border-radius: 12px;
-  padding: 8px 12px;
-  font-size: 0.95rem;
-  font-weight: 800;
-  text-align: center;
-  line-height: 1.25;
-}
+.cat-btn:active { transform: scale(0.97); border-color: var(--green); }
+.cat-btn .emoji { font-size: 22px; }
+.cat-btn.wide { grid-column: 1 / -1; justify-content: center; }
 
-/* 상단 뒤로가기 칩 (2·3단계 공용) — 5060 배려로 터치 높이 44px 이상 */
+/* ═══════════ 화면 2 — 가게 선택 ═══════════ */
+#stepSelect { padding: 22px 0 0; gap: var(--sp-3); }
 .back-chip {
-  align-self: flex-start;
-  border: 2px solid var(--line);
-  background: #fff;
-  border-radius: 999px;
-  min-height: 44px;
-  padding: 8px 16px;
-  font-size: 0.95rem;
-  font-weight: 800;
-  color: #55605a;
-  cursor: pointer;
-  box-shadow: var(--card-shadow);
-  white-space: nowrap;
+  align-self: flex-start; margin: 0 var(--sp-4);
+  display: flex; align-items: center; gap: 8px;
+  height: 44px; padding: 0 16px;
+  border: 1.5px solid var(--line); border-radius: 999px; background: var(--card);
+  font-size: 17px; font-weight: 700; color: var(--ink);
+  box-shadow: var(--shadow); white-space: nowrap;
 }
 .back-chip:active { border-color: var(--green); color: var(--green-dark); }
+.s2-note { font-size: var(--fs-sub); font-weight: 600; color: var(--ink-sub); padding: 0 var(--sp-4); }
+.s2-note .dim { color: #9aa094; }
 
-/* ── 3단계: 네비게이션 (지도 전체 화면 + 오버레이 버튼) ── */
-/* 네비 화면일 때만 앱 전체를 한 화면에 고정하고 헤더·푸터 숨김 — 1·2단계 불변 */
+.store-list { flex: 1; padding: 4px var(--sp-3) var(--sp-3); display: flex; flex-direction: column; gap: 12px; }
+.store-card {
+  background: var(--card); border: none; text-align: left; font: inherit;
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.store-card:active { transform: scale(0.98); }
+.store-top { display: flex; align-items: center; gap: 12px; }
+.rank {
+  width: 36px; height: 36px; border-radius: 999px;
+  background: var(--green-soft); color: var(--green-dark);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 19px; font-weight: 800; flex-shrink: 0;
+}
+.store-name { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; flex: 1; min-width: 0; line-height: 1.25; }
+.store-tag { font-size: 15px; font-weight: 700; color: var(--ink-sub); background: var(--cream); border-radius: 8px; padding: 5px 9px; white-space: nowrap; }
+.store-bottom { display: flex; align-items: center; gap: 10px; }
+.dist-chip {
+  flex: 1; display: flex; align-items: center; gap: 8px;
+  background: var(--orange-soft); border-radius: 14px; padding: 10px 12px; min-width: 0;
+  overflow: hidden;
+}
+.dist-chip .dist { font-size: 24px; font-weight: 900; color: var(--orange); letter-spacing: -0.02em; white-space: nowrap; }
+.dist-chip .where { font-size: 16px; font-weight: 700; color: #b05a15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.go-btn {
+  height: var(--touch); padding: 0 18px; border: none; border-radius: 14px;
+  background: var(--btn-green-grad); box-shadow: var(--btn-green-shadow);
+  color: #fff; font-size: 19px; font-weight: 800;
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+}
+.go-btn .arrow { font-size: 15px; }
+.more-hint { text-align: center; font-size: 15px; color: #9aa094; font-weight: 600; padding: 2px 0 6px; }
+
+/* ═══════════ 화면 3 — 네비게이션 ═══════════ */
+/* 네비 화면일 때만 앱 전체를 한 화면에 고정하고 푸터 숨김 — 1·2단계 불변 */
 #app:has(#stepNav:not(.hidden)) { height: 100vh; height: 100dvh; min-height: auto; overflow: hidden; }
 #app:has(#stepNav:not(.hidden)) main { padding: 0; display: flex; min-height: 0; }
-#app:has(#stepNav:not(.hidden)) .app-header,
 #app:has(#stepNav:not(.hidden)) .app-footer { display: none; }
 #stepNav { flex: 1; position: relative; min-height: 0; }
 
@@ -242,7 +215,18 @@ main { flex: 1; padding: 12px 14px 2px; }
 .map-stage {
   position: absolute; inset: 0;
   overflow: hidden;
-  background: #fdfcf9;
+  background: #efe9da;               /* --map-bg (목업 토큰) */
+  touch-action: none;                /* 전체 지도 모드 핀치줌·팬 제스처용 */
+}
+/* 2.5D 기울임: 차량 내비(따라가기) 근접 뷰에서만 적용 — 지도 모드(🗺)는 평면.
+   .tilted 클래스는 app.js renderMap 이 모드에 따라 토글.
+   기울기 원점은 내 위치 고정점(50% 62%)과 맞춰 화면이 덜 흔들리게.
+   라벨 세로 압축 보정(1/cos46°≈1.44)은 layoutMap 이 .lbl transform 으로 적용. */
+.map-stage { perspective: 1100px; }
+.tilt-layer { position: absolute; inset: 0; }
+.map-stage.tilted .tilt-layer {
+  transform: rotateX(46deg) scale(1.18);
+  transform-origin: 50% 62%;
 }
 #mapSvg {
   display: block;
@@ -251,91 +235,103 @@ main { flex: 1; padding: 12px 14px 2px; }
   transition: left 0.18s linear, top 0.18s linear;
   will-change: transform;
 }
-
-/* 상단 오버레이: 안내 바 + 아래 행(좌 칩 열 · 우 토글 열) — 플로우 배치라 겹침 없음 */
-.nav-overlay-top {
-  position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); left: 10px; right: 10px; z-index: 6;
-  display: flex; flex-direction: column; gap: 8px;
-  pointer-events: none;               /* 지도 조작 방해 금지 — 버튼만 클릭 가능 */
-}
-.nav-overlay-top button { pointer-events: auto; }
-.guide-pill {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 2px solid var(--line);
-  border-radius: 999px;
-  min-height: 52px;
-  padding: 8px 16px;
-  box-shadow: var(--card-shadow);
-}
-#guideIcon { font-size: 1.5rem; line-height: 1; font-weight: 800; color: var(--green-dark); }
-#guideText { font-size: 1.1rem; font-weight: 800; color: var(--ink); word-break: keep-all; text-align: center; }
-.nav-top-row { display: flex; justify-content: space-between; align-items: flex-start; }
-.nav-chip-col { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.nav-chip-col .back-chip { padding: 8px 12px; font-size: 0.9rem; }
-.nav-toggle-col { display: flex; flex-direction: column; gap: 8px; }
-.tts-btn {
-  width: 46px; height: 46px;
-  border: 2px solid var(--line);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.94);
-  font-size: 1.4rem;
-  cursor: pointer;
-  box-shadow: var(--card-shadow);
-}
-.tts-btn.off { opacity: 0.45; filter: grayscale(1); }
-.nav-overlay-bc {
-  position: absolute; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 5;
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  pointer-events: none;
-}
-/* 층간 이동/안내 종료 큰 버튼 — 5060 배려 큰 터치·큰 글씨 */
-.floor-go-btn {
-  pointer-events: auto;
-  width: 100%; max-width: 420px;
-  min-height: 58px;
-  border: none; border-radius: 16px;
-  background: var(--green);
-  color: #fff;
-  font-size: 1.1rem; font-weight: 800;
-  box-shadow: 0 6px 16px rgba(30, 122, 60, 0.4);
-  cursor: pointer;
-  animation: btnBreath 1.6s ease-in-out infinite;
-}
-.floor-go-btn:active { transform: scale(0.97); }
-@keyframes btnBreath {
-  0%, 100% { box-shadow: 0 6px 16px rgba(30, 122, 60, 0.4); }
-  50% { box-shadow: 0 6px 24px rgba(30, 122, 60, 0.65); }
-}
 /* 층 전환 시 짧은 페이드 (화면이 넘어가는 느낌) */
 .floor-flash { animation: floorFade 0.45s ease; }
 @keyframes floorFade { from { opacity: 0.1; } to { opacity: 1; } }
-.floor-tabs { display: flex; gap: 6px; pointer-events: auto; }
-.floor-tabs button {
-  border: 2px solid var(--line);
-  background: rgba(255, 255, 255, 0.94);
-  border-radius: 999px;
-  min-height: 44px;
-  padding: 8px 14px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: var(--card-shadow);
+
+/* 상단 오버레이: 큰 안내 바 + 칩·토글 */
+.nav-top {
+  position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 14px; right: 14px; z-index: 5;
+  display: flex; flex-direction: column; gap: 12px;
+  pointer-events: none;
 }
-.floor-tabs button.active { background: var(--green); border-color: var(--green); color: #fff; }
+.nav-top > * { pointer-events: auto; }
+.instr {
+  border-radius: var(--radius-lg); padding: 18px 20px;
+  display: flex; align-items: center; gap: 16px; color: #fff;
+}
+.instr.going {
+  background: linear-gradient(165deg, #27924b, var(--green) 60%, var(--green-dark));
+  box-shadow: 0 10px 28px rgba(30, 122, 60, 0.4);
+}
+.instr.arrived {
+  background: linear-gradient(165deg, #f2872f, var(--orange) 60%, #c95e0f);
+  box-shadow: 0 10px 28px rgba(232, 115, 26, 0.4);
+}
+.instr .icon {
+  width: 64px; height: 64px; border-radius: 18px;
+  background: rgba(255, 255, 255, 0.18);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 38px; flex-shrink: 0;
+}
+.instr-text { min-width: 0; }
+.instr .main { font-size: var(--fs-hero); font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; display: block; }
+.instr .next { font-size: 18px; font-weight: 700; color: rgba(255, 255, 255, 0.85); display: block; margin-top: 2px; }
+.instr .next:empty { display: none; }
+
+.nav-chips { display: flex; align-items: center; justify-content: space-between; }
+.chip-row { display: flex; gap: 8px; }
+.nav-chip {
+  height: 44px; padding: 0 14px; border: none; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94); box-shadow: var(--shadow);
+  font-size: 16px; font-weight: 700; color: var(--ink); white-space: nowrap;
+}
+.nav-chip:active { transform: scale(0.96); }
+.toggle { width: var(--touch); height: var(--touch); border-radius: 999px; font-size: 22px; border: none;
+  background: var(--btn-green-grad); color: #fff;
+  box-shadow: 0 4px 12px rgba(30, 122, 60, 0.4), inset 0 2px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+}
+.toggle.off {
+  border: 1.5px solid var(--line);
+  background: rgba(255, 255, 255, 0.94); color: var(--ink);
+  box-shadow: var(--shadow);
+  filter: grayscale(0.4);
+}
+
+/* 확대/축소 버튼 (전체 지도 모드 전용) — 우측 세로, 카카오맵 PC 패턴 */
+.zoom-btns {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%); z-index: 5;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.zoom-btns button {
+  width: var(--touch); height: var(--touch);
+  border: 1.5px solid var(--line); border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96); color: var(--ink);
+  font-size: 26px; font-weight: 800; line-height: 1;
+  box-shadow: var(--shadow);
+}
+.zoom-btns button:active { transform: scale(0.94); border-color: var(--green); }
+
+/* 하단: 층 이동 CTA + 층 탭 */
+.nav-bottom {
+  position: absolute; left: 14px; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 5;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.floor-cta {
+  min-height: 64px; border: none; border-radius: var(--radius);
+  background: linear-gradient(165deg, #f2872f, var(--orange));
+  color: #fff; font-size: 21px; font-weight: 800;
+  box-shadow: 0 8px 22px rgba(232, 115, 26, 0.4);
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 8px 14px; line-height: 1.3;
+  flex-wrap: wrap; word-break: keep-all; text-align: center;
+}
+.floor-cta:active { transform: scale(0.98); }
+.floor-tabs {
+  display: flex; gap: 8px;
+  background: rgba(255, 255, 255, 0.94); border-radius: 16px; padding: 6px;
+  box-shadow: var(--shadow);
+}
+.floor-tab { flex: 1; min-height: 46px; border: none; border-radius: 12px; font-size: 18px; font-weight: 800; white-space: nowrap; padding: 0 6px; }
+.floor-tab.on {
+  background: var(--btn-green-grad);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25), inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+  color: #fff;
+}
+.floor-tab.off { background: transparent; color: var(--ink-sub); font-weight: 700; }
+
+/* ── 푸터 ─────────────────────────────── */
+.app-footer { text-align: center; padding: 10px 14px calc(12px + env(safe-area-inset-bottom, 0px)); color: #9aa094; font-size: 13px; }
 
 /* ── 공통 ─────────────────────────────── */
 .hidden { display: none !important; }
-
-.app-footer {
-  text-align: center;
-  padding: 8px 12px 12px;
-  color: #9a978e;
-  font-size: 0.72rem;
-}
-
-/* 낮은 화면(폰 브라우저 주소창 포함)에서 푸터 숨겨 한 화면에 맞춤 */
-/* (네비 화면 푸터 숨김은 위 #app:has(#stepNav) 규칙이 담당) */
-@media (max-height: 780px) {
-  .app-footer { display: none; }
-}

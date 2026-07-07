@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+:root{
+  /* ── 색상 ── */
+  --green:#1e7a3c;          /* 브랜드 진초록 */
+  --green-dark:#155c2c;     /* 눌림/그라데이션 하단 */
+  --green-soft:#e3f0e6;     /* 초록 연한 배경 */
+  --orange:#e8731a;         /* 목적지·행동 강조 */
+  --orange-soft:#fdeadb;    /* 주황 연한 배경 */
+  --cream:#faf6ee;          /* 앱 배경 */
+  --card:#ffffff;           /* 카드 배경 */
+  --ink:#232a24;            /* 본문 글자 */
+  --ink-sub:#6b7268;        /* 보조 글자 */
+  --line:#eae4d6;           /* 구분선 */
+  /* ── 글자 크기 ── */
+  --fs-body:19px;           /* 기본 */
+  --fs-sub:16px;            /* 보조(최소) */
+  --fs-title:23px;          /* 섹션 제목 */
+  --fs-big:28px;            /* 강조 */
+  --fs-hero:34px;           /* 안내 바 */
+  /* ── 간격 ── */
+  --sp-1:8px; --sp-2:12px; --sp-3:16px; --sp-4:20px; --sp-5:24px;
+  --touch:52px;             /* 최소 터치 영역 */
+  --radius:20px;            /* 카드 라운드 */
+  --radius-lg:28px;
+  --shadow:0 4px 16px rgba(35,42,36,.08);
+}
+body{margin:0;background:#eef0ea;font-family:'Pretendard Variable',Pretendard,-apple-system,'Noto Sans KR',sans-serif;color:#232a24;-webkit-font-smoothing:antialiased;}
+a{color:#1e7a3c;text-decoration:none;} a:hover{color:#e8731a;}
+</style>
+</helmet>
+
+<section style="display:flex;gap:48px;align-items:flex-start;padding:56px;width:max-content;">
+
+  <!-- ═══════════ 화면 1 — 품목 입력 ═══════════ -->
+  <div data-screen-label="화면 1 — 품목 입력">
+    <div style="font-size:15px;font-weight:700;color:var(--ink-sub);margin:0 0 10px 6px;letter-spacing:.02em;">화면 1 · 품목 입력</div>
+    <div style="width:390px;height:844px;background:var(--cream);border-radius:36px;box-shadow:0 12px 40px rgba(35,42,36,.14);overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;">
+
+      <!-- 헤더 -->
+      <header style="padding:22px var(--sp-4) var(--sp-3);display:flex;flex-direction:column;gap:10px;">
+        <span style="font-size:22px;font-weight:800;color:var(--green-dark);letter-spacing:-.01em;">가락몰 길찾기</span>
+        <div style="display:inline-flex;align-items:center;gap:7px;align-self:flex-start;background:var(--green-soft);border:1.5px solid rgba(30,122,60,.18);color:var(--green-dark);font-size:var(--fs-sub);font-weight:700;padding:9px 14px;border-radius:999px;">
+          <span>📍</span><span>판매동 지하1층 · 중앙 에스컬레이터 앞</span>
+        </div>
+      </header>
+
+      <!-- 마스코트 말풍선 -->
+      <div style="display:flex;align-items:flex-end;gap:12px;padding:6px var(--sp-4) 0;">
+        <div style="width:64px;height:64px;border-radius:18px;background:#fff;border:2px dashed #cfc7b4;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--ink-sub);text-align:center;line-height:1.25;flex-shrink:0;">무농이<br>이미지</div>
+        <div style="position:relative;background:var(--card);border-radius:var(--radius);border-bottom-left-radius:6px;box-shadow:var(--shadow);padding:14px 18px;font-size:var(--fs-title);font-weight:800;color:var(--ink);line-height:1.3;white-space:nowrap;">무엇을 사러 오셨나요?</div>
+      </div>
+
+      <!-- 1순위: 음성 -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:12px 0 10px;">
+        <button style="width:224px;height:224px;border-radius:999px;border:none;cursor:pointer;background:linear-gradient(170deg,#27924b,var(--green) 55%,var(--green-dark));box-shadow:0 10px 28px rgba(30,122,60,.38),inset 0 2px 0 rgba(255,255,255,.25);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#fff;" style-active="transform:scale(.96);">
+          <svg width="76" height="76" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3" fill="#ffffff" stroke="none"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><line x1="12" y1="18" x2="12" y2="21"></line></svg>
+          <span style="font-size:25px;font-weight:800;letter-spacing:-.01em;">눌러서 말하기</span>
+        </button>
+        <div style="font-size:var(--fs-sub);color:var(--ink-sub);font-weight:600;"><br></div>
+      </div>
+
+      <!-- 2순위: 텍스트 검색 -->
+      <div style="padding:0 var(--sp-4);">
+        <div style="display:flex;gap:10px;">
+          <div style="flex:1;display:flex;align-items:center;gap:10px;background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:0 16px;height:var(--touch);box-shadow:var(--shadow);">
+            <span style="font-size:20px;color:var(--ink-sub);">🔍</span>
+            <span style="font-size:18px;color:#9aa094;font-weight:500;">품목 입력 (예: 사과, 갈치)</span>
+          </div>
+          <button style="height:var(--touch);padding:0 20px;border:none;border-radius:16px;background:linear-gradient(175deg,#27924b,var(--green) 55%,var(--green-dark));box-shadow:0 4px 10px rgba(30,122,60,.35),inset 0 2px 0 rgba(255,255,255,.28),inset 0 -2px 0 rgba(0,0,0,.18);color:#fff;font-size:19px;font-weight:800;cursor:pointer;font-family:inherit;flex-shrink:0;">검색</button>
+        </div>
+      </div>
+
+      <!-- 3순위: 카테고리 -->
+      <div style="padding:24px var(--sp-4) 0;display:flex;flex-direction:column;gap:12px;flex:1;">
+        <div style="font-size:var(--fs-sub);font-weight:700;color:var(--ink-sub);">카테고리에서 고르기</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <button style="height:var(--touch);border:1.5px solid var(--line);border-radius:16px;background:var(--card);display:flex;align-items:center;gap:10px;padding:0 16px;font-size:18px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit;"><span style="font-size:22px;">🍎</span>청과·과일</button>
+          <button style="height:var(--touch);border:1.5px solid var(--line);border-radius:16px;background:var(--card);display:flex;align-items:center;gap:10px;padding:0 16px;font-size:18px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit;"><span style="font-size:22px;">🥬</span>채소·나물</button>
+          <button style="height:var(--touch);border:1.5px solid var(--line);border-radius:16px;background:var(--card);display:flex;align-items:center;gap:10px;padding:0 16px;font-size:18px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit;"><span style="font-size:22px;">🐟</span>수산·생선</button>
+          <button style="height:var(--touch);border:1.5px solid var(--line);border-radius:16px;background:var(--card);display:flex;align-items:center;gap:10px;padding:0 16px;font-size:18px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit;"><span style="font-size:22px;">🥩</span>축산·정육</button>
+          <button style="height:var(--touch);grid-column:1/-1;border:1.5px solid var(--line);border-radius:16px;background:var(--card);display:flex;align-items:center;justify-content:center;gap:10px;padding:0 16px;font-size:18px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit;"><span style="font-size:22px;">🦑</span>건어물·특산품</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 화면 2 — 가게 선택 ═══════════ -->
+  <div data-screen-label="화면 2 — 가게 선택">
+    <div style="font-size:15px;font-weight:700;color:var(--ink-sub);margin:0 0 10px 6px;letter-spacing:.02em;">화면 2 · 가게 선택</div>
+    <div style="width:390px;height:844px;background:var(--cream);border-radius:36px;box-shadow:0 12px 40px rgba(35,42,36,.14);overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;">
+
+      <!-- 상단 -->
+      <header style="padding:22px var(--sp-4) 12px;display:flex;flex-direction:column;gap:16px;">
+        <button style="align-self:flex-start;display:flex;align-items:center;gap:8px;height:44px;padding:0 16px;border:1.5px solid var(--line);border-radius:999px;background:var(--card);font-size:17px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit;box-shadow:var(--shadow);">← 다른 품목 찾기</button>
+        <div style="display:flex;align-items:flex-end;gap:12px;">
+          <div style="width:56px;height:56px;border-radius:16px;background:#fff;border:2px dashed #cfc7b4;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--ink-sub);text-align:center;line-height:1.25;flex-shrink:0;">무농이<br>이미지</div>
+          <div style="background:var(--card);border-radius:var(--radius);border-bottom-left-radius:6px;box-shadow:var(--shadow);padding:13px 16px;font-size:20px;font-weight:800;color:var(--ink);line-height:1.35;"><span style="color:var(--green);">'사과'</span> 파는 가게예요.<br>가고 싶은 곳을 눌러주세요!</div>
+        </div>
+        <div style="font-size:var(--fs-sub);font-weight:600;color:var(--ink-sub);">가까운 순서로 8곳을 보여드려요 <span style="color:#9aa094;">(전체 257곳)</span></div>
+      </header>
+
+      <!-- 카드 목록 -->
+      <div style="flex:1;overflow:hidden;padding:4px var(--sp-3) var(--sp-3);display:flex;flex-direction:column;gap:12px;">
+
+        <sc-for list="{{ stores }}" as="s" hint-placeholder-count="4">
+          <div style="background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="width:36px;height:36px;border-radius:999px;background:{{ s.rankBg }};color:{{ s.rankColor }};display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;flex-shrink:0;">{{ s.rank }}</div>
+              <div style="font-size:24px;font-weight:800;color:var(--ink);letter-spacing:-.01em;flex:1;">{{ s.name }}</div>
+              <div style="font-size:15px;font-weight:700;color:var(--ink-sub);background:var(--cream);border-radius:8px;padding:5px 9px;">{{ s.tag }}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="flex:1;display:flex;align-items:center;gap:8px;background:var(--orange-soft);border-radius:14px;padding:10px 12px;min-width:0;">
+                <span style="font-size:24px;font-weight:900;color:var(--orange);letter-spacing:-.02em;white-space:nowrap;">{{ s.dist }}</span>
+                <span style="font-size:16px;font-weight:700;color:#b05a15;white-space:nowrap;">{{ s.floor }} · {{ s.unit }}</span>
+              </div>
+              <button style="height:var(--touch);padding:0 18px;border:none;border-radius:14px;background:linear-gradient(175deg,#27924b,var(--green) 55%,var(--green-dark));box-shadow:0 4px 10px rgba(30,122,60,.35),inset 0 2px 0 rgba(255,255,255,.28),inset 0 -2px 0 rgba(0,0,0,.18);color:#fff;font-size:19px;font-weight:800;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;flex-shrink:0;">안내 <span style="font-size:15px;">▶</span></button>
+            </div>
+          </div>
+        </sc-for>
+
+        <div style="text-align:center;font-size:15px;color:#9aa094;font-weight:600;padding-top:2px;">아래로 밀어서 더 보기 ↓</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 화면 3 — 네비게이션 ═══════════ -->
+  <div data-screen-label="화면 3 — 네비게이션">
+    <div style="font-size:15px;font-weight:700;color:var(--ink-sub);margin:0 0 10px 6px;letter-spacing:.02em;">화면 3 · 네비게이션</div>
+    <div style="width:390px;height:844px;background:#f1ecdf;border-radius:36px;box-shadow:0 12px 40px rgba(35,42,36,.14);overflow:hidden;position:relative;box-sizing:border-box;">
+
+      <!-- 지도 (평면도 자리) -->
+      <div style="position:absolute;inset:0;overflow:hidden;">
+        <!-- 통로 -->
+        <div style="position:absolute;left:165px;top:-40px;bottom:120px;width:76px;background:#faf6ee;border-left:2px solid #e2dbc9;border-right:2px solid #e2dbc9;"></div>
+        <div style="position:absolute;left:-40px;top:180px;right:-40px;height:70px;background:#faf6ee;border-top:2px solid #e2dbc9;border-bottom:2px solid #e2dbc9;"></div>
+        <!-- 점포 블록 -->
+        <div style="position:absolute;left:24px;top:280px;width:120px;height:90px;background:#ffffff;border:2px solid #e6dfcd;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#a8a08c;">A028</div>
+        <div style="position:absolute;left:24px;top:390px;width:120px;height:90px;background:#ffffff;border:2px solid #e6dfcd;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#a8a08c;">A029</div>
+        <div style="position:absolute;right:24px;top:390px;width:120px;height:90px;background:#ffffff;border:2px solid #e6dfcd;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#a8a08c;">A031</div>
+        <!-- 목적지 점포 -->
+        <div style="position:absolute;right:24px;top:280px;width:120px;height:90px;background:var(--orange-soft);border:3px solid var(--orange);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 6px 18px rgba(232,115,26,.3);">
+          <span style="font-size:24px;">🍎</span>
+          <span style="font-size:16px;font-weight:800;color:#b05a15;">서울청과 A030</span>
+        </div>
+        <!-- 목적지 핀 -->
+        <div style="position:absolute;right:72px;top:246px;font-size:30px;filter:drop-shadow(0 3px 4px rgba(0,0,0,.25));">📍</div>
+        <!-- 경로 -->
+        <div style="position:absolute;left:201px;top:325px;bottom:220px;width:0;border-left:6px dashed var(--orange);opacity:.85;"></div>
+        <div style="position:absolute;left:207px;top:322px;width:110px;height:0;border-top:6px dashed var(--orange);opacity:.85;"></div>
+        <!-- 내 위치 -->
+        <div style="position:absolute;left:181px;bottom:196px;width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:22px solid rgba(30,122,60,.35);margin-left:6px;"></div>
+        <div style="position:absolute;left:184px;bottom:170px;width:34px;height:34px;border-radius:999px;background:var(--green);border:4px solid #fff;box-shadow:0 4px 12px rgba(30,122,60,.45);"></div>
+      </div>
+
+      <!-- 상단 안내 바 -->
+      <div style="position:absolute;top:18px;left:14px;right:14px;display:flex;flex-direction:column;gap:12px;">
+        <sc-if value="{{ notArrived }}" hint-placeholder-val="{{ true }}">
+          <div style="background:linear-gradient(165deg,#27924b,var(--green) 60%,var(--green-dark));border-radius:var(--radius-lg);box-shadow:0 10px 28px rgba(30,122,60,.4);padding:18px 20px;display:flex;align-items:center;gap:16px;color:#fff;">
+            <div style="width:64px;height:64px;border-radius:18px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:38px;flex-shrink:0;">⬆</div>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span style="font-size:var(--fs-hero);font-weight:900;letter-spacing:-.02em;line-height:1.1;">30m 직진</span>
+              <span style="font-size:18px;font-weight:700;color:rgba(255,255,255,.85);">다음에 오른쪽이에요</span>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ arrived }}" hint-placeholder-val="{{ false }}">
+          <div style="background:linear-gradient(165deg,#f2872f,var(--orange) 60%,#c95e0f);border-radius:var(--radius-lg);box-shadow:0 10px 28px rgba(232,115,26,.4);padding:18px 20px;display:flex;align-items:center;gap:16px;color:#fff;">
+            <div style="width:64px;height:64px;border-radius:18px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:38px;flex-shrink:0;">🎉</div>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span style="font-size:var(--fs-hero);font-weight:900;letter-spacing:-.02em;line-height:1.1;">도착했어요!</span>
+              <span style="font-size:18px;font-weight:700;color:rgba(255,255,255,.9);">서울청과 A030호</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- 칩 & 토글 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;gap:8px;">
+            <button style="height:44px;padding:0 14px;border:none;border-radius:999px;background:rgba(255,255,255,.94);box-shadow:var(--shadow);font-size:16px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit;">← 다른 가게</button>
+            <button style="height:44px;padding:0 14px;border:none;border-radius:999px;background:rgba(255,255,255,.94);box-shadow:var(--shadow);font-size:16px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit;">🏠 처음</button>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button style="width:var(--touch);height:var(--touch);border:none;border-radius:999px;background:linear-gradient(175deg,#27924b,var(--green) 55%,var(--green-dark));color:#fff;font-size:22px;box-shadow:0 4px 12px rgba(30,122,60,.4),inset 0 2px 0 rgba(255,255,255,.28),inset 0 -2px 0 rgba(0,0,0,.18);cursor:pointer;">📍</button>
+            <button style="width:var(--touch);height:var(--touch);border:1.5px solid var(--line);border-radius:999px;background:rgba(255,255,255,.94);font-size:22px;box-shadow:var(--shadow);cursor:pointer;">🔊</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 하단: 층 이동 -->
+      <div style="position:absolute;left:14px;right:14px;bottom:18px;display:flex;flex-direction:column;gap:10px;">
+        <button style="height:64px;border:none;border-radius:var(--radius);background:linear-gradient(165deg,#f2872f,var(--orange));color:#fff;font-size:21px;font-weight:800;box-shadow:0 8px 22px rgba(232,115,26,.4);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;">🚶 지하2층에 도착하면 누르세요</button>
+        <div style="display:flex;gap:8px;background:rgba(255,255,255,.94);border-radius:16px;padding:6px;box-shadow:var(--shadow);">
+          <button style="flex:1;height:46px;border:none;border-radius:12px;background:linear-gradient(175deg,#27924b,var(--green) 55%,var(--green-dark));box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -2px 0 rgba(0,0,0,.15);color:#fff;font-size:18px;font-weight:800;cursor:pointer;font-family:inherit;">지하1층 · 지금</button>
+          <button style="flex:1;height:46px;border:none;border-radius:12px;background:transparent;color:var(--ink-sub);font-size:18px;font-weight:700;cursor:pointer;font-family:inherit;">지하2층 · 목적지</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ═══════════ 화면 3-C — 네비게이션 (벡터 지도 C안) ═══════════ -->
+  <div data-screen-label="화면 3-C — 네비게이션 (벡터 지도)">
+    <div style="font-size:15px;font-weight:700;color:var(--ink-sub);margin:0 0 10px 6px;letter-spacing:.02em;">화면 3-C · 네비게이션 — 벡터 재작도(2.5D)</div>
+    <div style="width:390px;height:844px;background:#efe9da;border-radius:36px;box-shadow:0 12px 40px rgba(35,42,36,.14);overflow:hidden;position:relative;box-sizing:border-box;">
+
+      <!-- 2.5D 벡터 지도 -->
+      <div style="position:absolute;inset:0;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+        <div style="width:460px;height:780px;position:relative;flex-shrink:0;transform:perspective(1100px) rotateX(46deg) scale(1.26) translateY(-6px) translateX(-18px);transform-style:preserve-3d;background:#f6f1e4;border-radius:24px;box-shadow:0 30px 60px rgba(35,42,36,.25);">
+
+          <!-- 통로 -->
+          <div style="position:absolute;left:190px;top:0;bottom:0;width:80px;background:#fdfaf2;border-left:2px solid #e2dbc9;border-right:2px solid #e2dbc9;"></div>
+          <div style="position:absolute;left:0;right:0;top:150px;height:72px;background:#fdfaf2;border-top:2px solid #e2dbc9;border-bottom:2px solid #e2dbc9;"></div>
+
+          <!-- 수산 권역 (상단) -->
+          <div style="position:absolute;left:28px;top:36px;width:150px;height:96px;background:#dde9f0;border:2px solid #b9cfdd;border-bottom:8px solid #a4bfd0;border-radius:10px;transform-style:preserve-3d;display:flex;align-items:center;justify-content:center;">
+            <span style="transform:rotateX(-46deg);font-size:17px;font-weight:800;color:#3f6b85;">🐟 수산 B101</span>
+          </div>
+          <div style="position:absolute;right:28px;top:36px;width:150px;height:96px;background:#dde9f0;border:2px solid #b9cfdd;border-bottom:8px solid #a4bfd0;border-radius:10px;transform-style:preserve-3d;display:flex;align-items:center;justify-content:center;">
+            <span style="transform:rotateX(-46deg);font-size:17px;font-weight:800;color:#3f6b85;">🐟 수산 B102</span>
+          </div>
+
+          <!-- 에스컬레이터 -->
+          <div style="position:absolute;left:196px;top:158px;width:68px;height:56px;background:#e9e2cf;border:2px dashed #b9ae90;border-radius:8px;transform-style:preserve-3d;display:flex;align-items:center;justify-content:center;">
+            <span style="transform:rotateX(-46deg);font-size:15px;font-weight:800;color:#7c7357;text-align:center;line-height:1.15;">중앙<br>에스컬레이터</span>
+          </div>
+
+          <!-- 청과 권역 (좌측) -->
+          <div style="position:absolute;left:28px;top:256px;width:150px;height:96px;background:#e6f0e8;border:2px solid #bcd4c2;border-bottom:8px solid #a3c2ab;border-radius:10px;transform-style:preserve-3d;display:flex;align-items:center;justify-content:center;">
+            <span style="transform:rotateX(-46deg);font-size:17px;font-weight:800;color:#3e6b4c;">A028</span>
+          </div>
+          <div style="position:absolute;left:28px;top:372px;width:150px;height:96px;background:#e6f0e8;border:2px solid #bcd4c2;border-bottom:8px solid #a3c2ab;border-radius:10px;transform-style:preserve-3d;display:flex;align-items:center;justify-content:center;">
+            <span style="transform:rotateX(-46deg);font-size:17px;font-weight:800;color:#3e6b4c;">A029</span>
+          </div>
+          <div style="position:absolute;left:28px;top:488px;width:150px;height:96px;background:#e6f0e8;border:2px solid #bcd4c2;border-bottom:8px solid #a3c2ab;border-radius:10px;transform-style:preserve-3d;display:flex;align-items:center;justify-content:center;">
+            <span style="transform:rotateX(-46deg);font-size:15px;font-weight:800;color:#6f9a7c;">청과·과일 권역</span>
+          </div>
+
+          <!-- 우측: 목적지 + 이웃 -->
+          <div style="position:absolute;right:28px;top:256px;width:150px;height:96px;background:var(--orange-soft);border:3px solid var(--orange);border-bottom:9px solid #c95e0f;border-radius:10px;transform-style:preserve-3d;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(232,115,26,.35);">
+            <span style="transform:rotateX(-46deg);font-size:17px;font-weight:900;color:#b05a15;text-align:center;line-height:1.2;">🍎 서울청과<br>A030</span>
+          </div>
+          <div style="position:absolute;right:28px;top:372px;width:150px;height:96px;background:#e6f0e8;border:2px solid #bcd4c2;border-bottom:8px solid #a3c2ab;border-radius:10px;transform-style:preserve-3d;display:flex;align-items:center;justify-content:center;">
+            <span style="transform:rotateX(-46deg);font-size:17px;font-weight:800;color:#3e6b4c;">A031</span>
+          </div>
+          <div style="position:absolute;right:28px;top:488px;width:150px;height:96px;background:#e6f0e8;border:2px solid #bcd4c2;border-bottom:8px solid #a3c2ab;border-radius:10px;transform-style:preserve-3d;display:flex;align-items:center;justify-content:center;">
+            <span style="transform:rotateX(-46deg);font-size:17px;font-weight:800;color:#3e6b4c;">A032</span>
+          </div>
+
+          <!-- 경로 (SVG 벡터) -->
+          <svg width="460" height="780" viewBox="0 0 460 780" style="position:absolute;inset:0;overflow:visible;">
+            <path d="M 230 660 L 230 304 L 282 304" fill="none" stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity=".9"></path>
+            <path d="M 230 660 L 230 304 L 282 304" fill="none" stroke="#e8731a" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 16"></path>
+            <path d="M 282 288 L 306 304 L 282 320 Z" fill="#e8731a"></path>
+          </svg>
+
+          <!-- 내 위치 (진행 방향 위) -->
+          <div style="position:absolute;left:206px;top:610px;width:48px;height:48px;transform-style:preserve-3d;">
+            <div style="position:absolute;left:50%;top:-26px;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-bottom:30px solid rgba(30,122,60,.35);"></div>
+            <div style="width:48px;height:48px;border-radius:999px;background:var(--green);border:5px solid #fff;box-shadow:0 6px 16px rgba(30,122,60,.5);display:flex;align-items:center;justify-content:center;">
+              <div style="width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:15px solid #fff;margin-top:-2px;"></div>
+            </div>
+          </div>
+
+          <!-- 목적지 핀 (빌보드) -->
+          <div style="position:absolute;right:92px;top:216px;transform:rotateX(-46deg);transform-origin:center bottom;font-size:38px;filter:drop-shadow(0 4px 5px rgba(0,0,0,.3));">📍</div>
+        </div>
+      </div>
+
+      <!-- 상단 안내 바 -->
+      <div style="position:absolute;top:18px;left:14px;right:14px;display:flex;flex-direction:column;gap:12px;">
+        <div style="background:linear-gradient(165deg,#27924b,var(--green) 60%,var(--green-dark));border-radius:var(--radius-lg);box-shadow:0 10px 28px rgba(30,122,60,.4);padding:18px 20px;display:flex;align-items:center;gap:16px;color:#fff;">
+          <div style="width:64px;height:64px;border-radius:18px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:38px;flex-shrink:0;">⬆</div>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <span style="font-size:var(--fs-hero);font-weight:900;letter-spacing:-.02em;line-height:1.1;">30m 직진</span>
+            <span style="font-size:18px;font-weight:700;color:rgba(255,255,255,.85);">다음에 오른쪽이에요</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;gap:8px;">
+            <button style="height:44px;padding:0 14px;border:none;border-radius:999px;background:rgba(255,255,255,.94);box-shadow:var(--shadow);font-size:16px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit;">← 다른 가게</button>
+            <button style="height:44px;padding:0 14px;border:none;border-radius:999px;background:rgba(255,255,255,.94);box-shadow:var(--shadow);font-size:16px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit;">🏠 처음</button>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button style="width:var(--touch);height:var(--touch);border:none;border-radius:999px;background:linear-gradient(175deg,#27924b,var(--green) 55%,var(--green-dark));color:#fff;font-size:22px;box-shadow:0 4px 12px rgba(30,122,60,.4),inset 0 2px 0 rgba(255,255,255,.28),inset 0 -2px 0 rgba(0,0,0,.18);cursor:pointer;">📍</button>
+            <button style="width:var(--touch);height:var(--touch);border:1.5px solid var(--line);border-radius:999px;background:rgba(255,255,255,.94);font-size:22px;box-shadow:var(--shadow);cursor:pointer;">🔊</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 하단: 층 이동 -->
+      <div style="position:absolute;left:14px;right:14px;bottom:18px;display:flex;flex-direction:column;gap:10px;">
+        <button style="height:64px;border:none;border-radius:var(--radius);background:linear-gradient(165deg,#f2872f,var(--orange));color:#fff;font-size:21px;font-weight:800;box-shadow:0 8px 22px rgba(232,115,26,.4);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;">🚶 지하2층에 도착하면 누르세요</button>
+        <div style="display:flex;gap:8px;background:rgba(255,255,255,.94);border-radius:16px;padding:6px;box-shadow:var(--shadow);">
+          <button style="flex:1;height:46px;border:none;border-radius:12px;background:linear-gradient(175deg,#27924b,var(--green) 55%,var(--green-dark));box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -2px 0 rgba(0,0,0,.15);color:#fff;font-size:18px;font-weight:800;cursor:pointer;font-family:inherit;">지하1층 · 지금</button>
+          <button style="flex:1;height:46px;border:none;border-radius:12px;background:transparent;color:var(--ink-sub);font-size:18px;font-weight:700;cursor:pointer;font-family:inherit;">지하2층 · 목적지</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;arrived&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: false, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;화면 3 상태&quot;, &quot;description&quot;: &quot;화면 3 안내 바를 '도착' 상태로 전환&quot;}
+}">
+class Component extends DCLogic {
+  renderVals() {
+    const arrived = this.props.arrived ?? false;
+    const green = { rankBg: '#e3f0e6', rankColor: '#155c2c' };
+    return {
+      arrived,
+      notArrived: !arrived,
+      stores: [
+        { rank: '1', name: '서울청과', tag: '청과·과일', dist: '약 20m', floor: '같은 층', unit: 'A030호', ...green },
+        { rank: '2', name: '가락상회', tag: '청과·과일', dist: '약 45m', floor: '같은 층', unit: 'A102호', ...green },
+        { rank: '3', name: '싱싱과일도매', tag: '청과·과일', dist: '약 60m', floor: '지하 2층', unit: 'B011호', ...green },
+        { rank: '4', name: '한아름농산', tag: '채소·과일', dist: '약 85m', floor: '같은 층', unit: 'A215호', ...green },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
