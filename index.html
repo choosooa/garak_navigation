@@ -1,65 +1,72 @@
 <!DOCTYPE html>
 <!-- 가락몰 실내 길찾기 웹앱 (프로토타입) / 생성일: 2026-06-25 -->
 <!-- 3단계 흐름: ① 품목 입력 → ② 가게 선택 → ③ 네비게이션 -->
+<!-- UI: design_handoff_garakmall_wayfinding/mockup.html 기준 리디자인 (2026-07-07) -->
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <!-- 모바일 세로 화면 우선. 고령 사용자를 위해 핀치 줌 허용, iOS 노치/홈바 영역 반영(safe-area) -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>가락몰 길찾기</title>
-  <link rel="stylesheet" href="styles.css?v=23" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+  <link rel="stylesheet" href="styles.css?v=47" />
 </head>
 <body>
   <div id="app">
-    <!-- 상단 헤더: 앱명 + 현재 위치 칩 -->
-    <header class="app-header">
-      <h1>🥬 가락몰 길찾기</h1>
-      <span id="currentLocName" class="loc-chip">위치 확인 중…</span>
-    </header>
-
     <main>
       <!-- ═══ 1단계: 품목 입력 ═══ -->
       <section id="stepInput" class="step-view">
+        <!-- 헤더: 앱명 + 현재 위치 칩 (화면 1에서만 표시) -->
+        <header class="s1-header">
+          <span class="s1-appname"><span class="logo">🥬</span> 가락몰 길찾기</span>
+          <span id="currentLocName" class="loc-chip">위치 확인 중…</span>
+        </header>
+
         <!-- 무농이 말풍선 안내 -->
-        <div class="mascot-say intro">
+        <div class="mascot-row">
           <img class="mascot" src="assets/munongi.png" alt="친환경무농이" />
-          <p class="bubble">무엇을 사러 오셨나요?<br /><small>말하거나 버튼을 눌러주세요</small></p>
+          <p class="bubble bubble-title">무엇을 사러 오셨나요?</p>
         </div>
 
-        <!-- 음성 입력: 화면 가운데 큰 원형 마이크 버튼 -->
-        <div class="voice-wrap">
+        <!-- 1순위: 음성 (라벨이 버튼 안에 포함) -->
+        <div class="s1-voice">
           <button id="voiceBtn" class="mic-btn" type="button" aria-label="음성으로 말하기">
-            <svg viewBox="0 0 24 24" width="56" height="56" fill="none"
+            <svg viewBox="0 0 24 24" width="64" height="64" fill="none"
                  stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <rect x="9" y="2" width="6" height="12" rx="3" fill="#fff" stroke="none"/>
-              <path d="M5 10v1a7 7 0 0 0 14 0v-1"/>
-              <line x1="12" y1="18" x2="12" y2="22"/>
-              <line x1="8" y1="22" x2="16" y2="22"/>
+              <path d="M5 11a7 7 0 0 0 14 0"/>
+              <line x1="12" y1="18" x2="12" y2="21"/>
             </svg>
+            <span class="mic-label">눌러서 말하기</span>
           </button>
-          <p class="mic-label">눌러서 말하기</p>
         </div>
         <p id="voiceStatus" class="voice-status"></p>
 
-        <!-- 텍스트 검색: 음성이 안 되거나 직접 입력하고 싶을 때 -->
-        <form id="searchForm" class="search-form">
-          <input id="searchInput" type="search" placeholder="품목을 입력하세요 (예: 사과, 갈치)"
-                 autocomplete="off" enterkeyhint="search" />
-          <button type="submit">검색</button>
+        <!-- 2순위: 텍스트 검색 -->
+        <form id="searchForm" class="s1-search">
+          <div class="search-box">
+            <span class="search-ico">🔍</span>
+            <input id="searchInput" type="search" placeholder="품목 입력 (예: 사과, 갈치)"
+                   autocomplete="off" enterkeyhint="search" />
+          </div>
+          <button type="submit" class="btn-green">검색</button>
         </form>
 
-        <!-- 카테고리 터치 버튼 (음성 실패/소음 대비 항상 제공) -->
-        <div id="categoryButtons" class="category-buttons"></div>
+        <!-- 3순위: 카테고리 -->
+        <div class="s1-cats">
+          <div class="s1-cats-label">카테고리에서 고르기</div>
+          <div id="categoryButtons" class="cat-grid"></div>
+        </div>
       </section>
 
       <!-- ═══ 2단계: 가게 선택 ═══ -->
       <section id="stepSelect" class="step-view hidden">
         <button id="backToInput" class="back-chip" type="button">← 다른 품목 찾기</button>
-        <div class="mascot-say">
-          <img id="selectMascot" class="mascot" src="assets/munongi.png" alt="안내 캐릭터" />
+        <div class="mascot-row">
+          <img id="selectMascot" class="mascot mascot-sm" src="assets/munongi.png" alt="안내 캐릭터" />
           <p class="bubble" id="selectBubble">어느 가게로 안내할까요?</p>
         </div>
-        <p class="select-hint" id="selectHint"></p>
+        <p class="s2-note" id="selectHint"></p>
         <div id="storeList" class="store-list"><!-- app.js 에서 채움 --></div>
       </section>
 
@@ -67,29 +74,41 @@
       <!-- 지도가 화면 전체. 안내 바·버튼은 지도 위 오버레이 (음성 TTS 병행) -->
       <section id="stepNav" class="step-view hidden">
         <div class="map-stage" id="mapStage">
-          <svg id="mapSvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"
-               xmlns="http://www.w3.org/2000/svg" role="img" aria-label="가락몰 평면도"></svg>
+          <!-- tilt-layer: 벡터 지도 층에서만 2.5D 기울임(rotateX) 적용 -->
+          <div class="tilt-layer">
+            <svg id="mapSvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"
+                 xmlns="http://www.w3.org/2000/svg" role="img" aria-label="가락몰 평면도"></svg>
+          </div>
         </div>
-        <!-- 상단 오버레이: 안내 바(지금 할 일) + 그 아래 좌측 칩·우측 토글 (겹침 없는 플로우 배치) -->
-        <div class="nav-overlay-top">
-          <div class="guide-pill">
-            <span id="guideIcon">⬆</span>
-            <span id="guideText">안내를 시작합니다</span>
-          </div>
-          <div class="nav-top-row">
-            <div class="nav-chip-col">
-              <button id="backToSelect" class="back-chip" type="button">← 다른 가게</button>
-              <button id="restartBtn" class="back-chip" type="button">🏠 처음</button>
-            </div>
-            <div class="nav-toggle-col">
-              <button id="trackBtn" class="tts-btn" type="button" aria-label="위치 따라가기 켜기/끄기">📍</button>
-              <button id="ttsBtn" class="tts-btn" type="button" aria-label="음성 안내 켜기/끄기">🔊</button>
+        <!-- 상단 오버레이: 큰 안내 바(지금 할 일) + 칩·토글 -->
+        <div class="nav-top">
+          <div class="instr going" id="instrBar">
+            <div class="icon" id="guideIcon">⬆</div>
+            <div class="instr-text">
+              <span class="main" id="guideText">안내를 시작합니다</span>
+              <span class="next" id="guideNext"></span>
             </div>
           </div>
+          <div class="nav-chips">
+            <div class="chip-row">
+              <button id="backToSelect" class="nav-chip" type="button">← 다른 가게</button>
+              <button id="restartBtn" class="nav-chip" type="button">🏠 처음</button>
+              <button id="mapModeBtn" class="nav-chip" type="button">🗺 전체 지도</button>
+            </div>
+            <div class="chip-row">
+              <button id="trackBtn" class="toggle on" type="button" aria-label="위치 따라가기 켜기/끄기">📍</button>
+              <button id="ttsBtn" class="toggle on" type="button" aria-label="음성 안내 켜기/끄기">🔊</button>
+            </div>
+          </div>
+        </div>
+        <!-- 확대/축소 버튼 — 전체 지도 모드에서만 표시 (핀치 제스처 대체, 고령 사용자 배려) -->
+        <div id="zoomBtns" class="zoom-btns hidden">
+          <button id="zoomInBtn" type="button" aria-label="확대">＋</button>
+          <button id="zoomOutBtn" type="button" aria-label="축소">－</button>
         </div>
         <!-- 하단: 층간 이동/안내 종료 큰 버튼 + 층탭 -->
-        <div class="nav-overlay-bc">
-          <button id="floorGoBtn" class="floor-go-btn hidden" type="button"></button>
+        <div class="nav-bottom">
+          <button id="floorGoBtn" class="floor-cta hidden" type="button"></button>
           <div id="floorTabs" class="floor-tabs"></div>
         </div>
       </section>
@@ -100,6 +119,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=23"></script>
+  <script src="app.js?v=47"></script>
 </body>
 </html>

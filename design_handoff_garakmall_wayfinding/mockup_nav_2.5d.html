@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>가락몰 길찾기 — 화면 3-C 네비게이션 (2.5D 벡터 지도) 목업</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+/* ═══════════ 디자인 토큰 (mockup.html과 동일) ═══════════ */
+:root{
+  --green:#1e7a3c;
+  --green-dark:#155c2c;
+  --green-soft:#e3f0e6;
+  --orange:#e8731a;
+  --orange-soft:#fdeadb;
+  --cream:#faf6ee;
+  --card:#ffffff;
+  --ink:#232a24;
+  --ink-sub:#6b7268;
+  --line:#eae4d6;
+  --fs-sub:16px;
+  --fs-hero:34px;
+  --touch:52px;
+  --radius:20px;
+  --radius-lg:28px;
+  --shadow:0 4px 16px rgba(35,42,36,.08);
+  --btn-green-grad:linear-gradient(175deg,#27924b,var(--green) 55%,var(--green-dark));
+  --btn-green-shadow:0 4px 12px rgba(30,122,60,.4),inset 0 2px 0 rgba(255,255,255,.28),inset 0 -2px 0 rgba(0,0,0,.18);
+  /* ── 2.5D 지도 전용 토큰 ── */
+  --map-bg:#efe9da;            /* 프레임 배경 */
+  --map-plane:#f6f1e4;         /* 지도 바닥판 */
+  --map-corridor:#fdfaf2;      /* 통로 */
+  --map-line:#e2dbc9;          /* 통로 경계선 */
+  --zone-fruit-bg:#e6f0e8;     /* 청과 권역 */
+  --zone-fruit-line:#bcd4c2;
+  --zone-fruit-side:#a3c2ab;   /* 블록 두께(아랫면) */
+  --zone-fruit-text:#3e6b4c;
+  --zone-fish-bg:#dde9f0;      /* 수산 권역 */
+  --zone-fish-line:#b9cfdd;
+  --zone-fish-side:#a4bfd0;
+  --zone-fish-text:#3f6b85;
+  --map-tilt:46deg;            /* 지도 기울기 — 라벨 counter-tilt와 반드시 동일 */
+}
+*{box-sizing:border-box;}
+body{margin:0;background:#eef0ea;font-family:'Pretendard Variable',Pretendard,-apple-system,'Noto Sans KR',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;display:flex;justify-content:center;padding:56px;}
+button{font-family:inherit;cursor:pointer;}
+
+/* ═══════════ 프레임 ═══════════ */
+.frame{width:390px;height:844px;background:var(--map-bg);border-radius:36px;box-shadow:0 12px 40px rgba(35,42,36,.14);overflow:hidden;position:relative;flex-shrink:0;}
+
+/* ═══════════ 2.5D 지도 ═══════════
+   원리:
+   1. .map-plane 하나에 perspective + rotateX 로 바닥판 전체를 기울임
+   2. 모든 조상에 transform-style:preserve-3d 를 걸고,
+      라벨(span)에 rotateX(calc(var(--map-tilt) * -1)) 를 주면
+      지도가 기울어도 글자는 화면을 향해 바로 섬 (빌보드)
+   3. 블록의 "두께"는 border-bottom(어두운 색)으로 표현 — 기울면 옆면처럼 보임
+   실제 구현 시: 블록/통로 좌표는 SVG 트레이싱 데이터(판매동 B1)로 생성 */
+.map-viewport{position:absolute;inset:0;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+.map-plane{
+  width:460px;height:780px;position:relative;flex-shrink:0;
+  transform:perspective(1100px) rotateX(var(--map-tilt)) scale(1.26) translateY(-6px) translateX(-18px);
+  transform-style:preserve-3d;
+  background:var(--map-plane);border-radius:24px;
+  box-shadow:0 30px 60px rgba(35,42,36,.25);
+}
+.corridor-v{position:absolute;left:190px;top:0;bottom:0;width:80px;background:var(--map-corridor);border-left:2px solid var(--map-line);border-right:2px solid var(--map-line);}
+.corridor-h{position:absolute;left:0;right:0;top:150px;height:72px;background:var(--map-corridor);border-top:2px solid var(--map-line);border-bottom:2px solid var(--map-line);}
+
+/* 매대 블록 공통 */
+.block{position:absolute;width:150px;height:96px;border-radius:10px;transform-style:preserve-3d;display:flex;align-items:center;justify-content:center;}
+.block > span{transform:rotateX(calc(var(--map-tilt) * -1));font-size:17px;font-weight:800;text-align:center;line-height:1.2;}
+.block.fruit{background:var(--zone-fruit-bg);border:2px solid var(--zone-fruit-line);border-bottom:8px solid var(--zone-fruit-side);}
+.block.fruit > span{color:var(--zone-fruit-text);}
+.block.fish{background:var(--zone-fish-bg);border:2px solid var(--zone-fish-line);border-bottom:8px solid var(--zone-fish-side);}
+.block.fish > span{color:var(--zone-fish-text);}
+.block.dest{background:var(--orange-soft);border:3px solid var(--orange);border-bottom:9px solid #c95e0f;box-shadow:0 10px 24px rgba(232,115,26,.35);}
+.block.dest > span{color:#b05a15;font-weight:900;}
+.block.zone-label > span{font-size:15px;color:#6f9a7c;}
+
+/* 에스컬레이터 */
+.escalator{position:absolute;left:196px;top:158px;width:68px;height:56px;background:#e9e2cf;border:2px dashed #b9ae90;border-radius:8px;transform-style:preserve-3d;display:flex;align-items:center;justify-content:center;}
+.escalator > span{transform:rotateX(calc(var(--map-tilt) * -1));font-size:15px;font-weight:800;color:#7c7357;text-align:center;line-height:1.15;}
+
+/* 경로 (SVG): 흰색 밑줄 + 주황 점선 + 화살표 머리 */
+.route{position:absolute;inset:0;overflow:visible;}
+
+/* 내 위치 퍽 (진행 방향 = 위) */
+.me{position:absolute;left:206px;top:610px;width:48px;height:48px;transform-style:preserve-3d;}
+.me .view-cone{position:absolute;left:50%;top:-26px;transform:translateX(-50%);width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-bottom:30px solid rgba(30,122,60,.35);}
+.me .puck{width:48px;height:48px;border-radius:999px;background:var(--green);border:5px solid #fff;box-shadow:0 6px 16px rgba(30,122,60,.5);display:flex;align-items:center;justify-content:center;}
+.me .heading{width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:15px solid #fff;margin-top:-2px;}
+
+/* 목적지 핀 — 빌보드 (바닥에서 일어서 있음) */
+.dest-pin{position:absolute;right:92px;top:216px;transform:rotateX(calc(var(--map-tilt) * -1));transform-origin:center bottom;font-size:38px;filter:drop-shadow(0 4px 5px rgba(0,0,0,.3));}
+
+/* ═══════════ 상단 안내 바 ═══════════ */
+.nav-top{position:absolute;top:18px;left:14px;right:14px;display:flex;flex-direction:column;gap:12px;}
+.instr{border-radius:var(--radius-lg);padding:18px 20px;display:flex;align-items:center;gap:16px;color:#fff;}
+.instr.going{background:linear-gradient(165deg,#27924b,var(--green) 60%,var(--green-dark));box-shadow:0 10px 28px rgba(30,122,60,.4);}
+.instr.arrived{background:linear-gradient(165deg,#f2872f,var(--orange) 60%,#c95e0f);box-shadow:0 10px 28px rgba(232,115,26,.4);}
+.instr .icon{width:64px;height:64px;border-radius:18px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:38px;flex-shrink:0;}
+.instr .main{font-size:var(--fs-hero);font-weight:900;letter-spacing:-.02em;line-height:1.1;display:block;}
+.instr .next{font-size:18px;font-weight:700;color:rgba(255,255,255,.85);display:block;margin-top:2px;}
+.nav-chips{display:flex;align-items:center;justify-content:space-between;}
+.chip-row{display:flex;gap:8px;}
+.nav-chip{height:44px;padding:0 14px;border:none;border-radius:999px;background:rgba(255,255,255,.94);box-shadow:var(--shadow);font-size:16px;font-weight:700;color:var(--ink);}
+.toggle{width:var(--touch);height:var(--touch);border-radius:999px;font-size:22px;}
+.toggle.on{border:none;background:var(--btn-green-grad);color:#fff;box-shadow:var(--btn-green-shadow);}
+.toggle.off{border:1.5px solid var(--line);background:rgba(255,255,255,.94);box-shadow:var(--shadow);}
+
+/* ═══════════ 하단: 층 이동 ═══════════ */
+.nav-bottom{position:absolute;left:14px;right:14px;bottom:18px;display:flex;flex-direction:column;gap:10px;}
+.floor-cta{height:64px;border:none;border-radius:var(--radius);background:linear-gradient(165deg,#f2872f,var(--orange));color:#fff;font-size:21px;font-weight:800;box-shadow:0 8px 22px rgba(232,115,26,.4);display:flex;align-items:center;justify-content:center;gap:10px;}
+.floor-tabs{display:flex;gap:8px;background:rgba(255,255,255,.94);border-radius:16px;padding:6px;box-shadow:var(--shadow);}
+.floor-tab{flex:1;height:46px;border:none;border-radius:12px;font-size:18px;font-weight:800;}
+.floor-tab.on{background:var(--btn-green-grad);box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -2px 0 rgba(0,0,0,.15);color:#fff;}
+.floor-tab.off{background:transparent;color:var(--ink-sub);font-weight:700;}
+</style>
+</head>
+<body>
+
+<div class="frame">
+
+  <!-- 2.5D 벡터 지도 -->
+  <div class="map-viewport">
+    <div class="map-plane">
+      <div class="corridor-v"></div>
+      <div class="corridor-h"></div>
+
+      <!-- 수산 권역 (상단) -->
+      <div class="block fish" style="left:28px;top:36px;"><span>🐟 수산 B101</span></div>
+      <div class="block fish" style="right:28px;top:36px;"><span>🐟 수산 B102</span></div>
+
+      <!-- 에스컬레이터 -->
+      <div class="escalator"><span>중앙<br>에스컬레이터</span></div>
+
+      <!-- 청과 권역 (좌측) -->
+      <div class="block fruit" style="left:28px;top:256px;"><span>A028</span></div>
+      <div class="block fruit" style="left:28px;top:372px;"><span>A029</span></div>
+      <div class="block fruit zone-label" style="left:28px;top:488px;"><span>청과·과일 권역</span></div>
+
+      <!-- 우측: 목적지 + 이웃 -->
+      <div class="block dest" style="right:28px;top:256px;"><span>🍎 서울청과<br>A030</span></div>
+      <div class="block fruit" style="right:28px;top:372px;"><span>A031</span></div>
+      <div class="block fruit" style="right:28px;top:488px;"><span>A032</span></div>
+
+      <!-- 경로: 흰 밑줄 + 주황 점선 + 화살표 -->
+      <svg class="route" width="460" height="780" viewBox="0 0 460 780">
+        <path d="M 230 660 L 230 304 L 282 304" fill="none" stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
+        <path d="M 230 660 L 230 304 L 282 304" fill="none" stroke="#e8731a" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 16"/>
+        <path d="M 282 288 L 306 304 L 282 320 Z" fill="#e8731a"/>
+      </svg>
+
+      <!-- 내 위치 -->
+      <div class="me">
+        <div class="view-cone"></div>
+        <div class="puck"><div class="heading"></div></div>
+      </div>
+
+      <!-- 목적지 핀 -->
+      <div class="dest-pin">📍</div>
+    </div>
+  </div>
+
+  <!-- 상단 안내 바 -->
+  <div class="nav-top">
+    <div class="instr going">
+      <div class="icon">⬆</div>
+      <div><span class="main">30m 직진</span><span class="next">다음에 오른쪽이에요</span></div>
+    </div>
+    <!-- 도착 상태 (진행 중 바와 교체 표시)
+    <div class="instr arrived">
+      <div class="icon">🎉</div>
+      <div><span class="main">도착했어요!</span><span class="next">서울청과 A030호</span></div>
+    </div>
+    -->
+    <div class="nav-chips">
+      <div class="chip-row">
+        <button class="nav-chip">← 다른 가게</button>
+        <button class="nav-chip">🏠 처음</button>
+      </div>
+      <div class="chip-row">
+        <button class="toggle on">📍</button>
+        <button class="toggle off">🔊</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 하단: 층 이동 -->
+  <div class="nav-bottom">
+    <button class="floor-cta">🚶 지하2층에 도착하면 누르세요</button>
+    <div class="floor-tabs">
+      <button class="floor-tab on">지하1층 · 지금</button>
+      <button class="floor-tab off">지하2층 · 목적지</button>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>가락몰 길찾기 — UI 리디자인 목업 (정적 HTML+CSS)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+/* ═══════════ 디자인 토큰 ═══════════ */
+:root{
+  /* ── 색상 ── */
+  --green:#1e7a3c;          /* 브랜드 진초록 */
+  --green-dark:#155c2c;     /* 눌림/그라데이션 하단 */
+  --green-soft:#e3f0e6;     /* 초록 연한 배경 */
+  --orange:#e8731a;         /* 목적지·행동 강조 */
+  --orange-soft:#fdeadb;    /* 주황 연한 배경 */
+  --cream:#faf6ee;          /* 앱 배경 */
+  --card:#ffffff;           /* 카드 배경 */
+  --ink:#232a24;            /* 본문 글자 */
+  --ink-sub:#6b7268;        /* 보조 글자 */
+  --line:#eae4d6;           /* 구분선 */
+  /* ── 글자 크기 ── */
+  --fs-body:19px;           /* 기본 */
+  --fs-sub:16px;            /* 보조(최소) */
+  --fs-title:23px;          /* 섹션 제목 */
+  --fs-big:28px;            /* 강조 */
+  --fs-hero:34px;           /* 안내 바 */
+  /* ── 간격 ── */
+  --sp-1:8px; --sp-2:12px; --sp-3:16px; --sp-4:20px; --sp-5:24px;
+  --touch:52px;             /* 최소 터치 영역 */
+  --radius:20px;            /* 카드 라운드 */
+  --radius-lg:28px;
+  --shadow:0 4px 16px rgba(35,42,36,.08);
+  /* ── 내비 느낌 입체 버튼(초록) ── */
+  --btn-green-grad:linear-gradient(175deg,#27924b,var(--green) 55%,var(--green-dark));
+  --btn-green-shadow:0 4px 10px rgba(30,122,60,.35),inset 0 2px 0 rgba(255,255,255,.28),inset 0 -2px 0 rgba(0,0,0,.18);
+}
+*{box-sizing:border-box;}
+body{margin:0;background:#eef0ea;font-family:'Pretendard Variable',Pretendard,-apple-system,'Noto Sans KR',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;}
+button{font-family:inherit;cursor:pointer;}
+
+/* ═══════════ 프레임 공통 ═══════════ */
+.frames{display:flex;gap:48px;align-items:flex-start;padding:56px;width:max-content;}
+.frame-label{font-size:15px;font-weight:700;color:var(--ink-sub);margin:0 0 10px 6px;letter-spacing:.02em;}
+.frame{width:390px;height:844px;background:var(--cream);border-radius:36px;box-shadow:0 12px 40px rgba(35,42,36,.14);overflow:hidden;display:flex;flex-direction:column;}
+
+/* 마스코트 placeholder — 실제 이미지로 교체 */
+.mascot{border-radius:18px;background:#fff;border:2px dashed #cfc7b4;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--ink-sub);text-align:center;line-height:1.25;flex-shrink:0;}
+.bubble{background:var(--card);border-radius:var(--radius);border-bottom-left-radius:6px;box-shadow:var(--shadow);padding:14px 18px;font-weight:800;color:var(--ink);line-height:1.3;}
+
+/* ═══════════ 화면 1 — 품목 입력 ═══════════ */
+.s1-header{padding:22px var(--sp-4) var(--sp-3);display:flex;flex-direction:column;gap:10px;}
+.s1-appname{font-size:22px;font-weight:800;color:var(--green-dark);letter-spacing:-.01em;}
+.loc-chip{display:inline-flex;align-items:center;gap:7px;align-self:flex-start;background:var(--green-soft);border:1.5px solid rgba(30,122,60,.18);color:var(--green-dark);font-size:var(--fs-sub);font-weight:700;padding:9px 14px;border-radius:999px;}
+.s1-mascot-row{display:flex;align-items:flex-end;gap:12px;padding:6px var(--sp-4) 0;}
+.s1-voice{display:flex;flex-direction:column;align-items:center;gap:14px;padding:18px 0 14px;}
+.mic-btn{width:192px;height:192px;border-radius:999px;border:none;background:linear-gradient(170deg,#27924b,var(--green) 55%,var(--green-dark));box-shadow:0 10px 28px rgba(30,122,60,.38),inset 0 2px 0 rgba(255,255,255,.25);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#fff;}
+.mic-btn:active{transform:scale(.96);}
+.mic-btn span{font-size:25px;font-weight:800;letter-spacing:-.01em;}
+.s1-search{padding:0 var(--sp-4);display:flex;gap:10px;}
+.search-box{flex:1;display:flex;align-items:center;gap:10px;background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:0 16px;height:var(--touch);box-shadow:var(--shadow);}
+.search-box input{border:none;outline:none;background:transparent;font-size:18px;font-family:inherit;width:100%;color:var(--ink);}
+.search-box input::placeholder{color:#9aa094;font-weight:500;}
+.btn-green{height:var(--touch);padding:0 20px;border:none;border-radius:16px;background:var(--btn-green-grad);box-shadow:var(--btn-green-shadow);color:#fff;font-size:19px;font-weight:800;flex-shrink:0;}
+.s1-cats{padding:24px var(--sp-4) 0;display:flex;flex-direction:column;gap:12px;flex:1;}
+.s1-cats-label{font-size:var(--fs-sub);font-weight:700;color:var(--ink-sub);}
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.cat-btn{height:var(--touch);border:1.5px solid var(--line);border-radius:16px;background:var(--card);display:flex;align-items:center;gap:10px;padding:0 16px;font-size:18px;font-weight:700;color:var(--ink);}
+.cat-btn .emoji{font-size:22px;}
+.cat-btn.wide{grid-column:1/-1;justify-content:center;}
+
+/* ═══════════ 화면 2 — 가게 선택 ═══════════ */
+.s2-header{padding:22px var(--sp-4) 12px;display:flex;flex-direction:column;gap:16px;}
+.back-chip{align-self:flex-start;display:flex;align-items:center;gap:8px;height:44px;padding:0 16px;border:1.5px solid var(--line);border-radius:999px;background:var(--card);font-size:17px;font-weight:700;color:var(--ink);box-shadow:var(--shadow);}
+.s2-note{font-size:var(--fs-sub);font-weight:600;color:var(--ink-sub);}
+.s2-note .dim{color:#9aa094;}
+.store-list{flex:1;overflow:hidden;padding:4px var(--sp-3) var(--sp-3);display:flex;flex-direction:column;gap:12px;}
+.store-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:12px;}
+.store-top{display:flex;align-items:center;gap:12px;}
+.rank{width:36px;height:36px;border-radius:999px;background:var(--green-soft);color:var(--green-dark);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;flex-shrink:0;}
+.store-name{font-size:24px;font-weight:800;letter-spacing:-.01em;flex:1;}
+.store-tag{font-size:15px;font-weight:700;color:var(--ink-sub);background:var(--cream);border-radius:8px;padding:5px 9px;}
+.store-bottom{display:flex;align-items:center;gap:10px;}
+.dist-chip{flex:1;display:flex;align-items:center;gap:8px;background:var(--orange-soft);border-radius:14px;padding:10px 12px;min-width:0;}
+.dist-chip .dist{font-size:24px;font-weight:900;color:var(--orange);letter-spacing:-.02em;white-space:nowrap;}
+.dist-chip .where{font-size:16px;font-weight:700;color:#b05a15;white-space:nowrap;}
+.go-btn{height:var(--touch);padding:0 18px;border:none;border-radius:14px;background:var(--btn-green-grad);box-shadow:var(--btn-green-shadow);color:#fff;font-size:19px;font-weight:800;display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.go-btn .arrow{font-size:15px;}
+.more-hint{text-align:center;font-size:15px;color:#9aa094;font-weight:600;padding-top:2px;}
+
+/* ═══════════ 화면 3 — 네비게이션 ═══════════ */
+.frame.nav{background:#f1ecdf;position:relative;display:block;}
+.map{position:absolute;inset:0;overflow:hidden;}
+.corridor-v{position:absolute;left:165px;top:-40px;bottom:120px;width:76px;background:var(--cream);border-left:2px solid #e2dbc9;border-right:2px solid #e2dbc9;}
+.corridor-h{position:absolute;left:-40px;top:180px;right:-40px;height:70px;background:var(--cream);border-top:2px solid #e2dbc9;border-bottom:2px solid #e2dbc9;}
+.shop{position:absolute;width:120px;height:90px;background:#fff;border:2px solid #e6dfcd;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#a8a08c;}
+.shop.dest{background:var(--orange-soft);border:3px solid var(--orange);flex-direction:column;gap:2px;box-shadow:0 6px 18px rgba(232,115,26,.3);}
+.shop.dest .name{font-size:16px;font-weight:800;color:#b05a15;}
+.pin{position:absolute;right:72px;top:246px;font-size:30px;filter:drop-shadow(0 3px 4px rgba(0,0,0,.25));}
+.route-v{position:absolute;left:201px;top:325px;bottom:220px;width:0;border-left:6px dashed var(--orange);opacity:.85;}
+.route-h{position:absolute;left:207px;top:322px;width:110px;height:0;border-top:6px dashed var(--orange);opacity:.85;}
+.me-wedge{position:absolute;left:187px;bottom:196px;width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:22px solid rgba(30,122,60,.35);}
+.me-dot{position:absolute;left:184px;bottom:170px;width:34px;height:34px;border-radius:999px;background:var(--green);border:4px solid #fff;box-shadow:0 4px 12px rgba(30,122,60,.45);}
+.nav-top{position:absolute;top:18px;left:14px;right:14px;display:flex;flex-direction:column;gap:12px;}
+.instr{border-radius:var(--radius-lg);padding:18px 20px;display:flex;align-items:center;gap:16px;color:#fff;}
+.instr.going{background:linear-gradient(165deg,#27924b,var(--green) 60%,var(--green-dark));box-shadow:0 10px 28px rgba(30,122,60,.4);}
+.instr.arrived{background:linear-gradient(165deg,#f2872f,var(--orange) 60%,#c95e0f);box-shadow:0 10px 28px rgba(232,115,26,.4);}
+.instr .icon{width:64px;height:64px;border-radius:18px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:38px;flex-shrink:0;}
+.instr .main{font-size:var(--fs-hero);font-weight:900;letter-spacing:-.02em;line-height:1.1;display:block;}
+.instr .next{font-size:18px;font-weight:700;color:rgba(255,255,255,.85);display:block;margin-top:2px;}
+.nav-chips{display:flex;align-items:center;justify-content:space-between;}
+.chip-row{display:flex;gap:8px;}
+.nav-chip{height:44px;padding:0 14px;border:none;border-radius:999px;background:rgba(255,255,255,.94);box-shadow:var(--shadow);font-size:16px;font-weight:700;color:var(--ink);}
+.toggle{width:var(--touch);height:var(--touch);border-radius:999px;font-size:22px;}
+.toggle.on{border:none;background:var(--btn-green-grad);color:#fff;box-shadow:0 4px 12px rgba(30,122,60,.4),inset 0 2px 0 rgba(255,255,255,.28),inset 0 -2px 0 rgba(0,0,0,.18);}
+.toggle.off{border:1.5px solid var(--line);background:rgba(255,255,255,.94);box-shadow:var(--shadow);}
+.nav-bottom{position:absolute;left:14px;right:14px;bottom:18px;display:flex;flex-direction:column;gap:10px;}
+.floor-cta{height:64px;border:none;border-radius:var(--radius);background:linear-gradient(165deg,#f2872f,var(--orange));color:#fff;font-size:21px;font-weight:800;box-shadow:0 8px 22px rgba(232,115,26,.4);display:flex;align-items:center;justify-content:center;gap:10px;}
+.floor-tabs{display:flex;gap:8px;background:rgba(255,255,255,.94);border-radius:16px;padding:6px;box-shadow:var(--shadow);}
+.floor-tab{flex:1;height:46px;border:none;border-radius:12px;font-size:18px;font-weight:800;}
+.floor-tab.on{background:var(--btn-green-grad);box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -2px 0 rgba(0,0,0,.15);color:#fff;}
+.floor-tab.off{background:transparent;color:var(--ink-sub);font-weight:700;}
+</style>
+</head>
+<body>
+<div class="frames">
+
+  <!-- ═══════════ 화면 1 — 품목 입력 ═══════════ -->
+  <div>
+    <div class="frame-label">화면 1 · 품목 입력</div>
+    <div class="frame">
+      <header class="s1-header">
+        <span class="s1-appname">가락몰 길찾기</span>
+        <div class="loc-chip"><span>📍</span><span>판매동 지하1층 · 중앙 에스컬레이터 앞</span></div>
+      </header>
+
+      <div class="s1-mascot-row">
+        <div class="mascot" style="width:64px;height:64px;">무농이<br>이미지</div>
+        <div class="bubble" style="font-size:var(--fs-title);white-space:nowrap;">무엇을 사러 오셨나요?</div>
+      </div>
+
+      <!-- 1순위: 음성 -->
+      <div class="s1-voice">
+        <button class="mic-btn">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3" fill="#fff" stroke="none"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="21"/></svg>
+          <span>눌러서 말하기</span>
+        </button>
+      </div>
+
+      <!-- 2순위: 텍스트 검색 -->
+      <div class="s1-search">
+        <div class="search-box">
+          <span style="font-size:20px;color:var(--ink-sub);">🔍</span>
+          <input type="text" placeholder="품목 입력 (예: 사과, 갈치)">
+        </div>
+        <button class="btn-green">검색</button>
+      </div>
+
+      <!-- 3순위: 카테고리 -->
+      <div class="s1-cats">
+        <div class="s1-cats-label">카테고리에서 고르기</div>
+        <div class="cat-grid">
+          <button class="cat-btn"><span class="emoji">🍎</span>청과·과일</button>
+          <button class="cat-btn"><span class="emoji">🥬</span>채소·나물</button>
+          <button class="cat-btn"><span class="emoji">🐟</span>수산·생선</button>
+          <button class="cat-btn"><span class="emoji">🥩</span>축산·정육</button>
+          <button class="cat-btn wide"><span class="emoji">🦑</span>건어물·특산품</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 화면 2 — 가게 선택 ═══════════ -->
+  <div>
+    <div class="frame-label">화면 2 · 가게 선택</div>
+    <div class="frame">
+      <header class="s2-header">
+        <button class="back-chip">← 다른 품목 찾기</button>
+        <div class="s1-mascot-row" style="padding:0;">
+          <div class="mascot" style="width:56px;height:56px;font-size:11px;">무농이<br>이미지</div>
+          <div class="bubble" style="font-size:20px;padding:13px 16px;line-height:1.35;"><span style="color:var(--green);">'사과'</span> 파는 가게예요.<br>가고 싶은 곳을 눌러주세요!</div>
+        </div>
+        <div class="s2-note">가까운 순서로 8곳을 보여드려요 <span class="dim">(전체 257곳)</span></div>
+      </header>
+
+      <div class="store-list">
+        <div class="store-card">
+          <div class="store-top">
+            <div class="rank">1</div>
+            <div class="store-name">서울청과</div>
+            <div class="store-tag">청과·과일</div>
+          </div>
+          <div class="store-bottom">
+            <div class="dist-chip"><span class="dist">약 20m</span><span class="where">같은 층 · A030호</span></div>
+            <button class="go-btn">안내 <span class="arrow">▶</span></button>
+          </div>
+        </div>
+        <div class="store-card">
+          <div class="store-top">
+            <div class="rank">2</div>
+            <div class="store-name">가락상회</div>
+            <div class="store-tag">청과·과일</div>
+          </div>
+          <div class="store-bottom">
+            <div class="dist-chip"><span class="dist">약 45m</span><span class="where">같은 층 · A102호</span></div>
+            <button class="go-btn">안내 <span class="arrow">▶</span></button>
+          </div>
+        </div>
+        <div class="store-card">
+          <div class="store-top">
+            <div class="rank">3</div>
+            <div class="store-name">싱싱과일도매</div>
+            <div class="store-tag">청과·과일</div>
+          </div>
+          <div class="store-bottom">
+            <div class="dist-chip"><span class="dist">약 60m</span><span class="where">지하 2층 · B011호</span></div>
+            <button class="go-btn">안내 <span class="arrow">▶</span></button>
+          </div>
+        </div>
+        <div class="store-card">
+          <div class="store-top">
+            <div class="rank">4</div>
+            <div class="store-name">한아름농산</div>
+            <div class="store-tag">채소·과일</div>
+          </div>
+          <div class="store-bottom">
+            <div class="dist-chip"><span class="dist">약 85m</span><span class="where">같은 층 · A215호</span></div>
+            <button class="go-btn">안내 <span class="arrow">▶</span></button>
+          </div>
+        </div>
+        <div class="more-hint">아래로 밀어서 더 보기 ↓</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 화면 3 — 네비게이션 ═══════════ -->
+  <div>
+    <div class="frame-label">화면 3 · 네비게이션</div>
+    <div class="frame nav">
+      <!-- 지도: 실제 구현에서는 평면도 PNG 위에 경로 오버레이 -->
+      <div class="map">
+        <div class="corridor-v"></div>
+        <div class="corridor-h"></div>
+        <div class="shop" style="left:24px;top:280px;">A028</div>
+        <div class="shop" style="left:24px;top:390px;">A029</div>
+        <div class="shop" style="right:24px;top:390px;">A031</div>
+        <div class="shop dest" style="right:24px;top:280px;"><span style="font-size:24px;">🍎</span><span class="name">서울청과 A030</span></div>
+        <div class="pin">📍</div>
+        <div class="route-v"></div>
+        <div class="route-h"></div>
+        <div class="me-wedge"></div>
+        <div class="me-dot"></div>
+      </div>
+
+      <div class="nav-top">
+        <!-- 진행 중 상태 -->
+        <div class="instr going">
+          <div class="icon">⬆</div>
+          <div><span class="main">30m 직진</span><span class="next">다음에 오른쪽이에요</span></div>
+        </div>
+        <!-- 도착 상태 (진행 중 바와 교체 표시)
+        <div class="instr arrived">
+          <div class="icon">🎉</div>
+          <div><span class="main">도착했어요!</span><span class="next">서울청과 A030호</span></div>
+        </div>
+        -->
+        <div class="nav-chips">
+          <div class="chip-row">
+            <button class="nav-chip">← 다른 가게</button>
+            <button class="nav-chip">🏠 처음</button>
+          </div>
+          <div class="chip-row">
+            <button class="toggle on">📍</button>
+            <button class="toggle off">🔊</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-bottom">
+        <button class="floor-cta">🚶 지하2층에 도착하면 누르세요</button>
+        <div class="floor-tabs">
+          <button class="floor-tab on">지하1층 · 지금</button>
+          <button class="floor-tab off">지하2층 · 목적지</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
